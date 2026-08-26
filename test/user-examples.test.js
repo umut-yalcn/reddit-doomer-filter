@@ -1,29 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { NEGATIVE_EXAMPLES } from '../corpus/negative-examples.js';
 import { scorePost } from '../core/scorer.js';
 
-const examples = [
-  'TIP OKU LÜTFEN MUHENDİSLER AÇ',
-  'Ceng bitti bölüm değiştirmeye bak',
-  'cengin gelecegi yok ama zeki adama ihtiyac bitmez is bulursun ama okulda ogrendigin hersey cop artik',
-  'İş Bulamıyorum Hayattan Bıktım',
-  'Pişmanım ceng seçtiğim için',
-  "32 yaşında team lead'im, yaşım biraz daha genç olsa başka bir yöne yönelirdim.",
-  'Şuan yaşanan şey tam bir kıyım juniorlar için, şirket 2 yıldır 1 tane junior almadı. O dönem junior olarak giren artık mid olanlarında yarısı çıkarıldı.',
-  'Girmezdim. YZ işimi elimden almasa bile sektöre girme nedenim olan kodu uğraşa uğraşa kendim yazmaktan aldığım zevki elimden aldı.',
-  'mahvetti hayatimi bu bölüm',
-  "It's over beyler, kusura bakmayın",
-  'Tıp oku geç dinle beni lütfen',
-  'Su an derece yapip bilgisayar yazanin aklindan suphe ederim.',
-  'Tıp oku dostum ceng boş iş',
-  'Mavi yaka bir işe gir',
-  'y*zilimdan, y*zilimin o liberal atmosferinden ve y*zilimin devasa bir balon oldugunu bile bile sessiz maymunu oynayan y*zilimcilardan nefret ediyorum.',
-  'Bilgisayar mühendisiyim ama artık tatmin olmuyorum (gelecek kaygısı, yapay zekâ ve meslekten soğuma)',
-  'Okumadım, tostçu aç',
-  'Yazılım sektörü ben giremeden yok oldu',
-];
-
-for (const example of examples) {
+for (const example of NEGATIVE_EXAMPLES) {
   test(`kullanıcı örneğini gizler: ${example.slice(0, 55)}`, () => {
     const result = scorePost({ title: example, body: '' });
     assert.equal(result.hidden, true, JSON.stringify(result, null, 2));

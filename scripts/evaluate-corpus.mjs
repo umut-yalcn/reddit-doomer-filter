@@ -1,16 +1,12 @@
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import { NEGATIVE_EXAMPLES } from '../corpus/negative-examples.js';
 import { scorePost } from '../core/scorer.js';
 
-const defaults = [
-  '../../work/codingtr_negative_sentence_reference.md',
-  '../../work/turkdev_negative_sentences.md',
-  '../../work/engineeringtr_negative_sentences.md',
-  '../../work/pending_user_sentences.txt',
-];
-
-const paths = process.argv.slice(2).length ? process.argv.slice(2) : defaults;
-const records = [];
+const paths = process.argv.slice(2);
+const records = paths.length
+  ? []
+  : NEGATIVE_EXAMPLES.map((text) => ({ source: 'corpus/negative-examples.js', text }));
 
 for (const relativePath of paths) {
   const path = resolve(relativePath);

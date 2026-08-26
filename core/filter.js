@@ -1,4 +1,4 @@
-import { extractPost, findPostElements } from './content-dom.js';
+import { extractPost, findContainingPostElement, findPostElements } from './content-dom.js';
 import { normalizeTurkish } from './normalize.js';
 import { scorePost } from './scorer.js';
 
@@ -56,6 +56,7 @@ export class PostFilter {
     this.pending = new Set();
     this.scheduled = false;
     this.signatures = new WeakMap();
+    this.presentations = new WeakMap();
     this.onDecision = typeof onDecision === 'function' ? onDecision : null;
     this.onFeedback = typeof onFeedback === 'function' ? onFeedback : null;
   }
@@ -69,19 +70,49 @@ export class PostFilter {
 
     this.observer = new Observer((records) => {
       for (const record of records) {
-        for (const node of record.addedNodes) {
-          if (node.nodeType === 1) this.pending.add(node);
+        if (record.type === 'childList') {
+          this.enqueueNode(record.target);
+          for (const node of record.addedNodes) this.enqueueNode(node);
+        } else {
+          this.enqueueNode(record.target);
         }
       }
-      this.schedule();
+      if (this.pending.size > 0) this.schedule();
     });
-    this.observer.observe(this.doc.body || this.doc.documentElement, { childList: true, subtree: true });
+    this.observer.observe(this.doc.body || this.doc.documentElement, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+      attributes: true,
+      attributeFilter: [
+        'post-title',
+        'post-id',
+        'subreddit-prefixed-name',
+        'subreddit-name',
+        'data-subreddit',
+        'data-fullname',
+        'slot',
+        'data-post-click-location',
+        'id',
+      ],
+    });
     return this;
   }
 
   stop() {
     this.observer?.disconnect();
     this.observer = null;
+  }
+
+  enqueueNode(node) {
+    const post = findContainingPostElement(node);
+    if (post) {
+      this.pending.add(post);
+      return;
+    }
+
+    const element = node?.nodeType === 1 ? node : node?.parentElement;
+    if (element && findPostElements(element).length > 0) this.pending.add(element);
   }
 
   schedule() {
@@ -107,8 +138,6 @@ export class PostFilter {
   }
 
   processPost(element) {
-    if (element.getAttribute(STATE_ATTR) === 'hidden') return;
-
     try {
       const post = extractPost(element);
       if (!post.subreddit || !this.settings.subreddits.includes(post.subreddit)) return;
@@ -116,6 +145,7 @@ export class PostFilter {
       const currentSignature = signature(post);
       if (this.signatures.get(element) === currentSignature) return;
       this.signatures.set(element, currentSignature);
+      this.clearPresentation(element);
 
       const result = scorePost(post, this.settings);
       const decisionId = this.emitDecision(post, result);
@@ -152,6 +182,14 @@ export class PostFilter {
       console.warn('[Reddit Karamsarlık Filtresi] Geri bildirim kaydedilemedi:', error);
       return false;
     }
+  }
+
+  clearPresentation(element) {
+    const presentation = this.presentations.get(element);
+    if (!presentation) return;
+    if (presentation.kind === 'hidden') element.style.display = presentation.previousDisplay;
+    presentation.bar.remove();
+    this.presentations.delete(element);
   }
 
   hidePost(post, result, decisionId) {
@@ -193,6 +231,7 @@ export class PostFilter {
       bar.append(incorrect);
     }
     element.parentNode?.insertBefore(bar, element);
+    this.presentations.set(element, { kind: 'hidden', bar, previousDisplay });
   }
 
   addShownFeedback(post, decisionId) {
@@ -216,5 +255,6 @@ export class PostFilter {
 
     review.append(label, missed);
     post.element.parentNode.insertBefore(review, post.element.nextSibling);
+    this.presentations.set(post.element, { kind: 'review', bar: review, previousDisplay: post.element.style.display });
   }
 }

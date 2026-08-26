@@ -1,5 +1,5 @@
 import { splitClauses } from './clauses.js';
-import { isQuestion, normalizeTurkish, tokenize } from './normalize.js';
+import { isQuestion, isQuestionParticle, normalizeTurkish, tokenize } from './normalize.js';
 
 export const DEFAULT_THRESHOLD = 4;
 
@@ -14,8 +14,6 @@ const ADVERBS = new Set([
   'kesinlikle',
 ]);
 
-const QUESTION_PARTICLES = /^(?:mi|miyim|miyiz|misin|misiniz|miler)$/;
-
 function isDomainToken(token) {
   return /^(?:yazilim\w*|ceng\w*|bilgisayar\w*|muhendis\w*|sektor\w*|developer\w*|coder\w*|junior\w*|mid\w*|senior\w*|programlama\w*|bilisim\w*|bolum\w*)$/.test(token);
 }
@@ -29,7 +27,7 @@ function allowedGap(tokens) {
   let adverbs = 0;
 
   for (const token of tokens) {
-    if (QUESTION_PARTICLES.test(token)) questions += 1;
+    if (isQuestionParticle(token)) questions += 1;
     else if (ADVERBS.has(token)) adverbs += 1;
     else if (isDomainToken(token)) continue;
     else return false;
@@ -119,7 +117,7 @@ function scoreClausePositive(originalClause) {
   const hasAi = /\b(?:ai|yz|yapay\s+zeka\w*)\b/.test(text);
   const aiPossessiveObject = '(?:elim\\w*|elind\\w*|ellerin\\w*)';
   const aiDisplacementNegated = new RegExp(
-    `\\b(?:is\\w*\\s+)?${aiPossessiveObject}\\s+alm(?:iyor|ayacak|adi|az)|\\byerin\\w*\\s+alm(?:iyor|ayacak|adi|az)\\b`,
+    `\\b(?:is\\w*\\s+)?${aiPossessiveObject}\\s+(?:alm(?:iyor|ayacak|adi|az)|alam(?:iyor|ayacak|adi|az))|\\byerin\\w*\\s+(?:alm(?:iyor|ayacak|adi|az)|alam(?:iyor|ayacak|adi|az))\\b`,
   ).test(text);
   if (
     hasAi && !aiDisplacementNegated &&
@@ -288,7 +286,9 @@ function isInlineRebuttal(clause) {
   return (
     /\b(?:demek|iddia\w*)\b.{0,45}\b(?:yanlis|sacmalik|abarti|gercekci\s+degil|dogru\s+degil)\b/.test(text) ||
     /\bdiyen\w*\b.{0,30}\b(?:yaniliyor\w*|abartiyor\w*|sacmaliyor\w*)\b/.test(text) ||
-    /\b(?:katilmiyorum|aksine|tam\s+tersine)\b/.test(text) ||
+    /\b(?:diyen|soyleyen)\w*\b.{0,30}\bkatilmiyorum\b/.test(text) ||
+    /\b(?:soylem|iddia|gorus)\w*\b.{0,25}\bkatilmiyorum\b/.test(text) ||
+    /\b(?:buna|suna)\s+katilmiyorum\b/.test(text) ||
     /\b(?:is\s+bulmak\s+zor|piyasa\s+kotu|piyasa\s+cop)\s+degil\b/.test(text) ||
     /\b(?:tip\s+oku|tipa\s+gec|bolum\w*\s+degistir)\b.{0,18}\b(?:demiyorum|onermiyorum)\b/.test(text) ||
     /\b(?:yorum|laf|soylem)\w*\s+(?:yapmayin|atmayin|etmeyin)\b/.test(text) ||
@@ -299,9 +299,15 @@ function isInlineRebuttal(clause) {
 function isReferentialRebuttal(clause) {
   const text = normalizeTurkish(clause);
   return (
-    /\b(?:bu|su|boyle\s+bir)\s+(?:soylem\w*|iddia\w*|gorus\w*)\b.{0,35}\b(?:yanlis|sacmalik|abarti|gercekci\s+degil|dogru\s+degil)\b/.test(text) ||
+    /\b(?:bu|su|boyle\s+bir)\s+(?:soylem\w*|iddia\w*|gorus\w*)\b.{0,35}\b(?:yanlis|sacmalik|abarti|gercekci\s+degil|dogru\s+degil|katilmiyorum)\b/.test(text) ||
+    /^(?:bence\s+)?(?:buna|suna)\s+katilmiyorum\b/.test(text) ||
     /^(?:bence\s+)?(?:hayir|katilmiyorum|aksine|tam\s+tersine)\b/.test(text)
   );
+}
+
+function isOpeningFiller(clause) {
+  const text = normalizeTurkish(clause);
+  return /^(?:merhaba|selam|selamlar|arkadaslar|dostlar|herkese\s+merhaba|oncelikle)(?:\s+\w+){0,4}$/.test(text);
 }
 
 function scoreField(text, source) {
@@ -340,11 +346,11 @@ export function scorePost(post, options = {}) {
     .filter((item) => item.score > 0 && !item.neutralized)
     .sort((a, b) => b.score - a.score)[0];
 
-  if (
-    strongestTitle &&
-    bodyResults[0] &&
-    isReferentialRebuttal(bodyResults[0].original)
-  ) {
+  const openingBodyResults = bodyResults
+    .filter((item) => !isOpeningFiller(item.original))
+    .slice(0, 2);
+
+  if (strongestTitle && openingBodyResults.some((item) => isReferentialRebuttal(item.original))) {
     strongestTitle.neutralized = true;
   }
 
@@ -379,5 +385,6 @@ export const __testing = {
   hasDomain,
   isInlineRebuttal,
   isReferentialRebuttal,
+  isOpeningFiller,
   scoreClausePositive,
 };

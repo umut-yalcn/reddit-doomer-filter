@@ -35,7 +35,7 @@ Userscript menüsünden:
 
 ## Kalibrasyon ve geri bildirim
 
-Filtre, hedef subredditlerde değerlendirdiği son 500 benzersiz post kararını yalnız tarayıcıdaki userscript deposunda saklar. Aynı Reddit postu tekrar işlendiğinde yeni kayıt oluşturmak yerine mevcut kaydın görülme sayısı güncellenir.
+Filtre, hedef subredditlerde değerlendirdiği en fazla 500 benzersiz post kararını yalnız tarayıcıdaki userscript deposunda saklar. Aynı Reddit postu tekrar işlendiğinde yeni kayıt oluşturmak yerine mevcut kaydın görülme sayısı güncellenir. Elle etiketlenmiş kayıtlar sınır uygulanırken etiketsiz kayıtlardan önce korunur.
 
 - Gizlenen postlarda **Yanlış gizlendi** düğmesi yanlış pozitif etiketi kaydeder ve postu geri getirir.
 - Userscript menüsünden kalibrasyon modu açılırsa görünür bırakılan postlarda **Gizlenmeliydi** düğmesi belirir.
@@ -43,9 +43,11 @@ Filtre, hedef subredditlerde değerlendirdiği son 500 benzersiz post kararını
 
 Kalibrasyon modu varsayılan olarak kapalıdır. Günlük otomatik olarak dışarı gönderilmez; indirme yalnız menü komutu çalıştırıldığında yapılır.
 
+Geri bildirim değerlendirilen içerik ve kararın imzasına bağlıdır. Post gövdesi veya filtre kararı değişirse eski etiket yeni karara taşınmaz. Günlük yazımları kısa aralıklarla toplu yapılır ve sayfa kapanırken bekleyen kayıt diske aktarılır.
+
 ## Geliştirme
 
-Geliştirme ve test için Node.js `22.22.2+` veya `24.15.0+` gerekir. Derlenmiş userscriptin çalışması için Node.js gerekmez.
+Geliştirme ve test için Node.js `22.22.2`, `24.15.0` veya bunların aynı ana sürümdeki daha yeni yamaları; alternatif olarak Node.js `26+` gerekir. Derlenmiş userscriptin çalışması için Node.js gerekmez.
 
 ```bash
 npm install
@@ -60,10 +62,12 @@ npm run check
 - `core/scorer.js`: DOM'dan bağımsız puan ve karşıt anlatım motoru.
 - `core/content-dom.js`: yeni ve old Reddit post çıkarımı.
 - `core/filter.js`: dinamik feed izleme, gizleme ve geri alma.
+- `core/journal.js`: yerel, sınırlı ve geri bildirimli karar günlüğü.
+- `corpus/negative-examples.js`: kullanıcıdan alınmış yüksek güvenli negatif örnekler.
 - `userscript/main.js`: ayarlar ve userscript başlangıcı.
 - `test/`: pozitif, karşıt, DOM ve dinamik feed regresyonları.
 
-`npm run evaluate`, proje dışındaki çalışma corpus'unu tanısal olarak ölçer. Corpus içindeki her cümle otomatik olarak kesin pozitif kabul edilmez; karşıt anlatımlar ve bağlama muhtaç zayıf ifadeler de bulunabilir.
+`npm run evaluate`, projedeki yüksek güvenli negatif corpus'u tanısal olarak ölçer. Komuta ek dosya yolları verilirse Markdown veya metin corpus'ları da ayrıca değerlendirilebilir. `npm run check` bütün `*.test.js` dosyalarını otomatik bulur; build, userscript sözdizimi, sürüm eşleşmesi ve deterministik çıktı denetimlerini birlikte çalıştırır.
 
 ## Gizlilik ve kapsam
 

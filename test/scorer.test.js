@@ -38,6 +38,7 @@ test('başlıktaki soru gövdedeki karamsarlığı indirmez', () => {
 
 test('soru koruması yalnız başlık puanına uygulanır', () => {
   assert.equal(hidden('Yazılım bitti mi?', '', { protectQuestions: true }), false);
+  assert.equal(hidden('Sektör öldü mü acaba', '', { protectQuestions: true }), false);
   assert.equal(
     hidden('Ne yapmalıyım?', 'Sektör bitti.', { protectQuestions: true }),
     true,
@@ -50,6 +51,25 @@ test('yönlendirme, AI iş kaybı ve junior kıyımı güçlü sinyaldir', () =>
   assert.equal(hidden('Şirket iki yıldır bir tane junior almadı, yarısı çıkarıldı.'), true);
   assert.equal(hidden('Yapay zeka analiz mühendislerinin işini ellerinden alır mı?'), true);
   assert.equal(hidden('Analiz işlerini yapay zekanın devralması mümkün olur mu?'), true);
+});
+
+test('AI iş kaybını açıkça reddeden yeterlilik olumsuzlarını gösterir', () => {
+  assert.equal(hidden('AI işimizi elimizden alamaz.'), false);
+  assert.equal(hidden('Yapay zekâ mühendisin yerini alamaz.'), false);
+});
+
+test('başlıktaki iddiayı gövdenin ilk anlamlı cümleciğinde reddetmeyi tanır', () => {
+  assert.equal(
+    hidden('Yazılım bitti', 'Merhaba. Bence bu söylem saçmalık, sektör gayet iyi.'),
+    false,
+  );
+  assert.equal(hidden('Yazılım bitti', 'Bu söyleme katılmıyorum.'), false);
+  assert.equal(hidden('Yazılım bitti. Buna katılmıyorum.'), false);
+});
+
+test('alakasız hedefe yönelen katılmıyorum ifadesi karamsarlığı silmez', () => {
+  assert.equal(hidden('Yazılım bitti, maaşların iyi olduğuna katılmıyorum.'), true);
+  assert.equal(hidden('Yazılım bitti. Maaşların iyi olduğuna katılmıyorum.'), true);
 });
 
 test('kişisel ağır tükenme ve pişmanlığı yakalar', () => {
@@ -69,6 +89,7 @@ test('normal teknoloji ve kariyer cümlelerini gösterir', () => {
 
 test('canlı örneklerdeki uzun işsizlik ve mühendislik değersizleştirmesini yakalar', () => {
   assert.equal(hidden('Normal başlık', '8 aydır iş arayışım devam etmektedir.'), true);
+  assert.equal(hidden('Normal başlık', '1. yıldır iş arayışım devam etmektedir.'), true);
   assert.equal(hidden('Normal başlık', 'İş olanakları o kadar kısıtlı ki başka alana geçiyorum.'), true);
   assert.equal(hidden('Normal başlık', 'Her türlü mühendislik pozisyonu değersizleştirilmiş.'), true);
   assert.equal(hidden('Normal başlık', 'Top 10 üniversitelerden mezun olanlar bile işsiz kalıyor.'), true);

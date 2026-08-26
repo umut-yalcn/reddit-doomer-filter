@@ -43,7 +43,20 @@ function writeJournal(entries) {
   else localStorage.setItem(JOURNAL_KEY, raw);
 }
 
-const journal = new DecisionJournal({ read: readJournal, write: writeJournal, maxEntries: 500 });
+const journal = new DecisionJournal({
+  read: readJournal,
+  write: writeJournal,
+  maxEntries: 500,
+  deferWrite: (callback) => setTimeout(callback, 120),
+  onError: (error) => console.warn('[Reddit Karamsarlık Filtresi] Günlük depolama hatası:', error),
+});
+globalThis.addEventListener?.('pagehide', () => {
+  try {
+    journal.flush();
+  } catch (error) {
+    console.warn('[Reddit Karamsarlık Filtresi] Bekleyen günlük yazılamadı:', error);
+  }
+});
 const filter = new PostFilter({
   settings,
   onDecision: (post, result) => journal.record(post, result),

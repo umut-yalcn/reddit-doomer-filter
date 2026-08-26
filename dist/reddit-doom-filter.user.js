@@ -47,12 +47,16 @@
   }
 
   /** Yalnız başlık üzerinde kullanılmak üzere soru biçimini tespit eder. */
+  function isQuestionParticle(token) {
+    return /^(?:mi|mu)(?:y(?:im|um|iz|uz|di\w*|du\w*|mis\w*|mus\w*)|s(?:in|un|iniz|unuz)|l(?:er|ar))?$/.test(String(token ?? ''));
+  }
+
   function isQuestion(input) {
     const original = String(input ?? '');
     if (original.includes('?')) return true;
 
     const normalized = normalizeTurkish(original);
-    return /(?:^|\s)mi(?:yim|yiz|sin|siniz|ler|ydi|ymis)?(?:\s|$)/.test(normalized);
+    return normalized.split(' ').some(isQuestionParticle);
   }
 
   function tokenize(input) {
@@ -88,17 +92,97 @@
     }
   }
 
+  function retainEntries(entries, maxEntries) {
+    if (entries.length <= maxEntries) return entries;
+
+    const labeled = entries.filter((entry) => VALID_FEEDBACK.has(entry.feedback));
+    const keep = new Set(labeled.slice(-maxEntries));
+    const remaining = maxEntries - keep.size;
+    if (remaining > 0) {
+      const unlabeled = entries.filter((entry) => !VALID_FEEDBACK.has(entry.feedback));
+      for (const entry of unlabeled.slice(-remaining)) keep.add(entry);
+    }
+    return entries.filter((entry) => keep.has(entry));
+  }
+
+  function makeDecisionFingerprint(title, body, result) {
+    const reasons = Array.isArray(result?.reasons)
+      ? result.reasons.slice(0, 8).map((reason) => [reason?.category, Number(reason?.score) || 0])
+      : [];
+    const normalized = normalizeTurkish(JSON.stringify([
+      title,
+      body,
+      result?.hidden === true,
+      Number(result?.score) || 0,
+      Number(result?.threshold) || 0,
+      result?.source ?? null,
+      result?.clause ?? '',
+      result?.question === true,
+      reasons,
+    ]));
+    return `${hashText(normalized)}-${normalized.length}`;
+  }
+
   /** Tarayıcıda tutulan, boyutu sınırlı ve aynı postu tekilleştiren karar günlüğü. */
   class DecisionJournal {
-    constructor({ read = () => [], write = () => {}, now = () => new Date(), maxEntries = DEFAULT_MAX_ENTRIES } = {}) {
+    constructor({
+      read = () => [],
+      write = () => {},
+      now = () => new Date(),
+      maxEntries = DEFAULT_MAX_ENTRIES,
+      deferWrite = null,
+      onError = () => {},
+    } = {}) {
       this.read = read;
       this.write = write;
       this.now = now;
       this.maxEntries = Math.max(1, Number(maxEntries) || DEFAULT_MAX_ENTRIES);
+      this.deferWrite = typeof deferWrite === 'function' ? deferWrite : null;
+      this.onError = typeof onError === 'function' ? onError : () => {};
+      this.entries = null;
+      this.dirty = false;
+      this.writeScheduled = false;
+    }
+
+    load() {
+      if (this.entries) return this.entries;
+      try {
+        this.entries = parseEntries(this.read());
+      } catch (error) {
+        this.entries = [];
+        this.onError(error);
+      }
+      return this.entries;
     }
 
     list() {
-      return parseEntries(this.read());
+      return [...this.load()];
+    }
+
+    commit(entries) {
+      this.entries = entries;
+      this.dirty = true;
+      if (!this.deferWrite) {
+        this.flush();
+        return;
+      }
+      if (this.writeScheduled) return;
+      this.writeScheduled = true;
+      this.deferWrite(() => {
+        this.writeScheduled = false;
+        try {
+          this.flush();
+        } catch (error) {
+          this.onError(error);
+        }
+      });
+    }
+
+    flush() {
+      if (!this.dirty) return false;
+      this.write(this.load());
+      this.dirty = false;
+      return true;
     }
 
     record(post, result) {
@@ -114,9 +198,13 @@
       const normalizedIdentity = normalizeTurkish(identity);
       const fingerprint = `${hashText(normalizedIdentity)}-${normalizedIdentity.length}`;
       const timestamp = this.now().toISOString();
-      const entries = this.list();
+      const entries = [...this.load()];
       const existingIndex = entries.findIndex((entry) => entry.id === fingerprint);
       const previous = existingIndex >= 0 ? entries.splice(existingIndex, 1)[0] : null;
+      const decisionFingerprint = makeDecisionFingerprint(title, body, result);
+      const previousDecisionFingerprint = previous?.decisionFingerprint
+        ?? (previous ? makeDecisionFingerprint(previous.title, previous.body, previous) : null);
+      const sameDecision = previousDecisionFingerprint === decisionFingerprint;
 
       const entry = {
         id: fingerprint,
@@ -137,32 +225,34 @@
             }))
           : [],
         question: result?.question === true,
-        feedback: previous?.feedback ?? null,
+        decisionFingerprint,
+        feedback: sameDecision ? previous?.feedback ?? null : null,
+        ...(sameDecision && previous?.feedbackAt ? { feedbackAt: previous.feedbackAt } : {}),
         firstSeenAt: previous?.firstSeenAt ?? timestamp,
         lastSeenAt: timestamp,
         occurrences: (Number(previous?.occurrences) || 0) + 1,
       };
 
       entries.push(entry);
-      this.write(entries.slice(-this.maxEntries));
+      this.commit(retainEntries(entries, this.maxEntries));
       return entry.id;
     }
 
     mark(id, feedback) {
       if (!VALID_FEEDBACK.has(feedback)) return false;
-      const entries = this.list();
+      const entries = [...this.load()];
       const entry = entries.find((candidate) => candidate.id === id);
       if (!entry) return false;
       entry.feedback = feedback;
       entry.feedbackAt = this.now().toISOString();
-      this.write(entries);
+      this.commit(entries);
       return true;
     }
 
     exportPayload() {
       const entries = this.list();
       return {
-        schemaVersion: 1,
+        schemaVersion: 2,
         exportedAt: this.now().toISOString(),
         entryCount: entries.length,
         entries,
@@ -170,7 +260,7 @@
     }
   }
 
-  const journalTesting = { hashText, parseEntries };
+  const journalTesting = { hashText, makeDecisionFingerprint, parseEntries, retainEntries };
 
 
   // ---- core/clauses.js ----
@@ -179,9 +269,13 @@
    * kısa Türkçe ifadelerde özne/yüklemi gereksiz yere koparabilir.
    */
   function splitClauses(input) {
-    return String(input ?? '')
+    const protectedText = String(input ?? '')
+      .replace(/(?<=\d)\.(?=\d)/gu, '\uE000')
+      .replace(/\b(\d+)\.(?=\s*(?:yıl|yil|ay|sene|hafta|gün|gun|kez|defa|sınıf|sinif)\p{L}*)/giu, '$1\uE000');
+
+    return protectedText
       .split(/(?:[.!?;\n]+|\b(?:ama|fakat|ancak|lakin)\b)/giu)
-      .map((part) => part.trim().replace(/^[,–—:\s]+|[,–—:\s]+$/g, ''))
+      .map((part) => part.replaceAll('\uE000', '.').trim().replace(/^[,–—:\s]+|[,–—:\s]+$/g, ''))
       .filter(Boolean);
   }
 
@@ -201,8 +295,6 @@
     'kesinlikle',
   ]);
 
-  const QUESTION_PARTICLES = /^(?:mi|miyim|miyiz|misin|misiniz|miler)$/;
-
   function isDomainToken(token) {
     return /^(?:yazilim\w*|ceng\w*|bilgisayar\w*|muhendis\w*|sektor\w*|developer\w*|coder\w*|junior\w*|mid\w*|senior\w*|programlama\w*|bilisim\w*|bolum\w*)$/.test(token);
   }
@@ -216,7 +308,7 @@
     let adverbs = 0;
 
     for (const token of tokens) {
-      if (QUESTION_PARTICLES.test(token)) questions += 1;
+      if (isQuestionParticle(token)) questions += 1;
       else if (ADVERBS.has(token)) adverbs += 1;
       else if (isDomainToken(token)) continue;
       else return false;
@@ -305,7 +397,7 @@
     const hasAi = /\b(?:ai|yz|yapay\s+zeka\w*)\b/.test(text);
     const aiPossessiveObject = '(?:elim\\w*|elind\\w*|ellerin\\w*)';
     const aiDisplacementNegated = new RegExp(
-      `\\b(?:is\\w*\\s+)?${aiPossessiveObject}\\s+alm(?:iyor|ayacak|adi|az)|\\byerin\\w*\\s+alm(?:iyor|ayacak|adi|az)\\b`,
+      `\\b(?:is\\w*\\s+)?${aiPossessiveObject}\\s+(?:alm(?:iyor|ayacak|adi|az)|alam(?:iyor|ayacak|adi|az))|\\byerin\\w*\\s+(?:alm(?:iyor|ayacak|adi|az)|alam(?:iyor|ayacak|adi|az))\\b`,
     ).test(text);
     if (
       hasAi && !aiDisplacementNegated &&
@@ -472,7 +564,9 @@
     return (
       /\b(?:demek|iddia\w*)\b.{0,45}\b(?:yanlis|sacmalik|abarti|gercekci\s+degil|dogru\s+degil)\b/.test(text) ||
       /\bdiyen\w*\b.{0,30}\b(?:yaniliyor\w*|abartiyor\w*|sacmaliyor\w*)\b/.test(text) ||
-      /\b(?:katilmiyorum|aksine|tam\s+tersine)\b/.test(text) ||
+      /\b(?:diyen|soyleyen)\w*\b.{0,30}\bkatilmiyorum\b/.test(text) ||
+      /\b(?:soylem|iddia|gorus)\w*\b.{0,25}\bkatilmiyorum\b/.test(text) ||
+      /\b(?:buna|suna)\s+katilmiyorum\b/.test(text) ||
       /\b(?:is\s+bulmak\s+zor|piyasa\s+kotu|piyasa\s+cop)\s+degil\b/.test(text) ||
       /\b(?:tip\s+oku|tipa\s+gec|bolum\w*\s+degistir)\b.{0,18}\b(?:demiyorum|onermiyorum)\b/.test(text) ||
       /\b(?:yorum|laf|soylem)\w*\s+(?:yapmayin|atmayin|etmeyin)\b/.test(text) ||
@@ -483,9 +577,15 @@
   function isReferentialRebuttal(clause) {
     const text = normalizeTurkish(clause);
     return (
-      /\b(?:bu|su|boyle\s+bir)\s+(?:soylem\w*|iddia\w*|gorus\w*)\b.{0,35}\b(?:yanlis|sacmalik|abarti|gercekci\s+degil|dogru\s+degil)\b/.test(text) ||
+      /\b(?:bu|su|boyle\s+bir)\s+(?:soylem\w*|iddia\w*|gorus\w*)\b.{0,35}\b(?:yanlis|sacmalik|abarti|gercekci\s+degil|dogru\s+degil|katilmiyorum)\b/.test(text) ||
+      /^(?:bence\s+)?(?:buna|suna)\s+katilmiyorum\b/.test(text) ||
       /^(?:bence\s+)?(?:hayir|katilmiyorum|aksine|tam\s+tersine)\b/.test(text)
     );
+  }
+
+  function isOpeningFiller(clause) {
+    const text = normalizeTurkish(clause);
+    return /^(?:merhaba|selam|selamlar|arkadaslar|dostlar|herkese\s+merhaba|oncelikle)(?:\s+\w+){0,4}$/.test(text);
   }
 
   function scoreField(text, source) {
@@ -524,11 +624,11 @@
       .filter((item) => item.score > 0 && !item.neutralized)
       .sort((a, b) => b.score - a.score)[0];
 
-    if (
-      strongestTitle &&
-      bodyResults[0] &&
-      isReferentialRebuttal(bodyResults[0].original)
-    ) {
+    const openingBodyResults = bodyResults
+      .filter((item) => !isOpeningFiller(item.original))
+      .slice(0, 2);
+
+    if (strongestTitle && openingBodyResults.some((item) => isReferentialRebuttal(item.original))) {
       strongestTitle.neutralized = true;
     }
 
@@ -563,6 +663,7 @@
     hasDomain,
     isInlineRebuttal,
     isReferentialRebuttal,
+    isOpeningFiller,
     scoreClausePositive,
   };
 
@@ -570,6 +671,7 @@
   // ---- core/content-dom.js ----
   const NEW_POST_SELECTOR = 'shreddit-post';
   const OLD_POST_SELECTOR = '#siteTable > .thing.link, .sitetable > .thing.link';
+  const POST_SELECTOR = `${NEW_POST_SELECTOR}, ${OLD_POST_SELECTOR}`;
 
   function includeSelfAndDescendants(root, selector) {
     const found = [];
@@ -583,6 +685,11 @@
       ...includeSelfAndDescendants(root, NEW_POST_SELECTOR),
       ...includeSelfAndDescendants(root, OLD_POST_SELECTOR),
     ];
+  }
+
+  function findContainingPostElement(node) {
+    const element = node?.nodeType === 1 ? node : node?.parentElement;
+    return element?.closest?.(POST_SELECTOR) ?? null;
   }
 
   function firstText(el, selectors) {
@@ -687,6 +794,7 @@
       this.pending = new Set();
       this.scheduled = false;
       this.signatures = new WeakMap();
+      this.presentations = new WeakMap();
       this.onDecision = typeof onDecision === 'function' ? onDecision : null;
       this.onFeedback = typeof onFeedback === 'function' ? onFeedback : null;
     }
@@ -700,19 +808,49 @@
 
       this.observer = new Observer((records) => {
         for (const record of records) {
-          for (const node of record.addedNodes) {
-            if (node.nodeType === 1) this.pending.add(node);
+          if (record.type === 'childList') {
+            this.enqueueNode(record.target);
+            for (const node of record.addedNodes) this.enqueueNode(node);
+          } else {
+            this.enqueueNode(record.target);
           }
         }
-        this.schedule();
+        if (this.pending.size > 0) this.schedule();
       });
-      this.observer.observe(this.doc.body || this.doc.documentElement, { childList: true, subtree: true });
+      this.observer.observe(this.doc.body || this.doc.documentElement, {
+        childList: true,
+        subtree: true,
+        characterData: true,
+        attributes: true,
+        attributeFilter: [
+          'post-title',
+          'post-id',
+          'subreddit-prefixed-name',
+          'subreddit-name',
+          'data-subreddit',
+          'data-fullname',
+          'slot',
+          'data-post-click-location',
+          'id',
+        ],
+      });
       return this;
     }
 
     stop() {
       this.observer?.disconnect();
       this.observer = null;
+    }
+
+    enqueueNode(node) {
+      const post = findContainingPostElement(node);
+      if (post) {
+        this.pending.add(post);
+        return;
+      }
+
+      const element = node?.nodeType === 1 ? node : node?.parentElement;
+      if (element && findPostElements(element).length > 0) this.pending.add(element);
     }
 
     schedule() {
@@ -738,8 +876,6 @@
     }
 
     processPost(element) {
-      if (element.getAttribute(STATE_ATTR) === 'hidden') return;
-
       try {
         const post = extractPost(element);
         if (!post.subreddit || !this.settings.subreddits.includes(post.subreddit)) return;
@@ -747,6 +883,7 @@
         const currentSignature = signature(post);
         if (this.signatures.get(element) === currentSignature) return;
         this.signatures.set(element, currentSignature);
+        this.clearPresentation(element);
 
         const result = scorePost(post, this.settings);
         const decisionId = this.emitDecision(post, result);
@@ -783,6 +920,14 @@
         console.warn('[Reddit Karamsarlık Filtresi] Geri bildirim kaydedilemedi:', error);
         return false;
       }
+    }
+
+    clearPresentation(element) {
+      const presentation = this.presentations.get(element);
+      if (!presentation) return;
+      if (presentation.kind === 'hidden') element.style.display = presentation.previousDisplay;
+      presentation.bar.remove();
+      this.presentations.delete(element);
     }
 
     hidePost(post, result, decisionId) {
@@ -824,6 +969,7 @@
         bar.append(incorrect);
       }
       element.parentNode?.insertBefore(bar, element);
+      this.presentations.set(element, { kind: 'hidden', bar, previousDisplay });
     }
 
     addShownFeedback(post, decisionId) {
@@ -847,6 +993,7 @@
 
       review.append(label, missed);
       post.element.parentNode.insertBefore(review, post.element.nextSibling);
+      this.presentations.set(post.element, { kind: 'review', bar: review, previousDisplay: post.element.style.display });
     }
   }
 
@@ -895,7 +1042,20 @@
     else localStorage.setItem(JOURNAL_KEY, raw);
   }
 
-  const journal = new DecisionJournal({ read: readJournal, write: writeJournal, maxEntries: 500 });
+  const journal = new DecisionJournal({
+    read: readJournal,
+    write: writeJournal,
+    maxEntries: 500,
+    deferWrite: (callback) => setTimeout(callback, 120),
+    onError: (error) => console.warn('[Reddit Karamsarlık Filtresi] Günlük depolama hatası:', error),
+  });
+  globalThis.addEventListener?.('pagehide', () => {
+    try {
+      journal.flush();
+    } catch (error) {
+      console.warn('[Reddit Karamsarlık Filtresi] Bekleyen günlük yazılamadı:', error);
+    }
+  });
   const filter = new PostFilter({
     settings,
     onDecision: (post, result) => journal.record(post, result),

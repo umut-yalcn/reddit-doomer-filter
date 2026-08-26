@@ -30,12 +30,16 @@ export function normalizeTurkish(input) {
 }
 
 /** Yalnız başlık üzerinde kullanılmak üzere soru biçimini tespit eder. */
+export function isQuestionParticle(token) {
+  return /^(?:mi|mu)(?:y(?:im|um|iz|uz|di\w*|du\w*|mis\w*|mus\w*)|s(?:in|un|iniz|unuz)|l(?:er|ar))?$/.test(String(token ?? ''));
+}
+
 export function isQuestion(input) {
   const original = String(input ?? '');
   if (original.includes('?')) return true;
 
   const normalized = normalizeTurkish(original);
-  return /(?:^|\s)mi(?:yim|yiz|sin|siniz|ler|ydi|ymis)?(?:\s|$)/.test(normalized);
+  return normalized.split(' ').some(isQuestionParticle);
 }
 
 export function tokenize(input) {

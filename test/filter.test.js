@@ -57,6 +57,99 @@ test('MutationObserver sonradan eklenen postu işler', async () => {
   filter.stop();
 });
 
+test('MutationObserver mevcut post kabuğuna sonradan gelen başlık ve gövdeyi yeniden işler', async () => {
+  const dom = new JSDOM(`<!doctype html><html><head></head><body><main>
+    <shreddit-post id="t3_late" subreddit-prefixed-name="r/CodingTR"></shreddit-post>
+  </main></body></html>`, {
+    url: 'https://www.reddit.com/r/CodingTR/new/',
+    pretendToBeVisual: true,
+  });
+  globalThis.Node = dom.window.Node;
+
+  const filter = new PostFilter({ doc: dom.window.document }).start();
+  const post = dom.window.document.querySelector('shreddit-post');
+  post.setAttribute('post-title', 'Yazılım bitti');
+  const body = dom.window.document.createElement('div');
+  body.setAttribute('slot', 'text-body');
+  body.textContent = 'Tıp oku.';
+  post.append(body);
+
+  await new Promise((resolve) => dom.window.setTimeout(resolve, 120));
+  assert.equal(post.style.display, 'none');
+  assert.equal(dom.window.document.querySelectorAll('.rdf-bar').length, 1);
+  filter.stop();
+});
+
+test('gövde sonradan iddiayı çürütürse gizli postu yeniden değerlendirip gösterir', async () => {
+  const dom = new JSDOM(`<!doctype html><html><head></head><body><main>
+    <shreddit-post id="t3_rebutted" post-title="Yazılım bitti" subreddit-prefixed-name="r/CodingTR"></shreddit-post>
+  </main></body></html>`, {
+    url: 'https://www.reddit.com/r/CodingTR/new/',
+    pretendToBeVisual: true,
+  });
+  const filter = new PostFilter({ doc: dom.window.document }).start();
+  const post = dom.window.document.querySelector('shreddit-post');
+  assert.equal(post.style.display, 'none');
+
+  const body = dom.window.document.createElement('div');
+  body.setAttribute('slot', 'text-body');
+  body.textContent = 'Bence bu söylem saçmalık, sektör gayet iyi.';
+  post.append(body);
+
+  await new Promise((resolve) => dom.window.setTimeout(resolve, 120));
+  assert.equal(post.style.display, '');
+  assert.equal(dom.window.document.querySelectorAll('.rdf-bar').length, 0);
+  filter.stop();
+});
+
+test('SPA benzeri eleman yeniden kullanımında subreddit ve başlık değişimini işler', async () => {
+  const dom = new JSDOM(`<!doctype html><html><head></head><body><main>
+    <shreddit-post id="t3_reused" post-title="Normal proje" subreddit-prefixed-name="r/programming"></shreddit-post>
+  </main></body></html>`, {
+    url: 'https://www.reddit.com/',
+    pretendToBeVisual: true,
+  });
+  const filter = new PostFilter({ doc: dom.window.document }).start();
+  const post = dom.window.document.querySelector('shreddit-post');
+  post.setAttribute('subreddit-prefixed-name', 'r/TurkDev');
+  post.setAttribute('post-title', 'CENG bitti, tıp oku');
+
+  await new Promise((resolve) => dom.window.setTimeout(resolve, 120));
+  assert.equal(post.style.display, 'none');
+  assert.equal(dom.window.document.querySelectorAll('.rdf-bar').length, 1);
+  filter.stop();
+});
+
+test('mevcut gövde metni sonradan değiştiğinde postu yeniden değerlendirir', async () => {
+  const dom = new JSDOM(`<!doctype html><html><head></head><body><main>
+    <shreddit-post id="t3_text" post-title="Kariyer konuşması" subreddit-prefixed-name="r/EngineeringTR">
+      <div slot="text-body">Normal bir paylaşım.</div>
+    </shreddit-post>
+  </main></body></html>`, {
+    url: 'https://www.reddit.com/r/EngineeringTR/new/',
+    pretendToBeVisual: true,
+  });
+  const filter = new PostFilter({ doc: dom.window.document }).start();
+  const post = dom.window.document.querySelector('shreddit-post');
+  post.querySelector('[slot="text-body"]').firstChild.data = 'Tıp oku, mühendislik boş iş.';
+
+  await new Promise((resolve) => dom.window.setTimeout(resolve, 120));
+  assert.equal(post.style.display, 'none');
+  filter.stop();
+});
+
+test('değişmeyen postu yeniden işlemek kontrol çubuğunu çoğaltmaz', () => {
+  const dom = new JSDOM(`<!doctype html><body>
+    <shreddit-post id="t3_once" post-title="Yazılım bitti" subreddit-prefixed-name="r/CodingTR"></shreddit-post>
+  </body>`, { url: 'https://www.reddit.com/r/CodingTR/new/' });
+  const filter = new PostFilter({ doc: dom.window.document });
+  const post = dom.window.document.querySelector('shreddit-post');
+  filter.processTree(dom.window.document);
+  filter.processPost(post);
+  filter.processTree(dom.window.document);
+  assert.equal(dom.window.document.querySelectorAll('.rdf-bar').length, 1);
+});
+
 test('gizlenen post için yanlış pozitif geri bildirimi kaydeder ve postu gösterir', () => {
   const dom = new JSDOM(`<!doctype html><body>
     <shreddit-post post-id="feedback-hidden" post-title="Yazılım bitti" subreddit-prefixed-name="r/CodingTR"></shreddit-post>

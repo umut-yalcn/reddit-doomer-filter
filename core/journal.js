@@ -25,17 +25,97 @@ function parseEntries(raw) {
   }
 }
 
+function retainEntries(entries, maxEntries) {
+  if (entries.length <= maxEntries) return entries;
+
+  const labeled = entries.filter((entry) => VALID_FEEDBACK.has(entry.feedback));
+  const keep = new Set(labeled.slice(-maxEntries));
+  const remaining = maxEntries - keep.size;
+  if (remaining > 0) {
+    const unlabeled = entries.filter((entry) => !VALID_FEEDBACK.has(entry.feedback));
+    for (const entry of unlabeled.slice(-remaining)) keep.add(entry);
+  }
+  return entries.filter((entry) => keep.has(entry));
+}
+
+function makeDecisionFingerprint(title, body, result) {
+  const reasons = Array.isArray(result?.reasons)
+    ? result.reasons.slice(0, 8).map((reason) => [reason?.category, Number(reason?.score) || 0])
+    : [];
+  const normalized = normalizeTurkish(JSON.stringify([
+    title,
+    body,
+    result?.hidden === true,
+    Number(result?.score) || 0,
+    Number(result?.threshold) || 0,
+    result?.source ?? null,
+    result?.clause ?? '',
+    result?.question === true,
+    reasons,
+  ]));
+  return `${hashText(normalized)}-${normalized.length}`;
+}
+
 /** Tarayıcıda tutulan, boyutu sınırlı ve aynı postu tekilleştiren karar günlüğü. */
 export class DecisionJournal {
-  constructor({ read = () => [], write = () => {}, now = () => new Date(), maxEntries = DEFAULT_MAX_ENTRIES } = {}) {
+  constructor({
+    read = () => [],
+    write = () => {},
+    now = () => new Date(),
+    maxEntries = DEFAULT_MAX_ENTRIES,
+    deferWrite = null,
+    onError = () => {},
+  } = {}) {
     this.read = read;
     this.write = write;
     this.now = now;
     this.maxEntries = Math.max(1, Number(maxEntries) || DEFAULT_MAX_ENTRIES);
+    this.deferWrite = typeof deferWrite === 'function' ? deferWrite : null;
+    this.onError = typeof onError === 'function' ? onError : () => {};
+    this.entries = null;
+    this.dirty = false;
+    this.writeScheduled = false;
+  }
+
+  load() {
+    if (this.entries) return this.entries;
+    try {
+      this.entries = parseEntries(this.read());
+    } catch (error) {
+      this.entries = [];
+      this.onError(error);
+    }
+    return this.entries;
   }
 
   list() {
-    return parseEntries(this.read());
+    return [...this.load()];
+  }
+
+  commit(entries) {
+    this.entries = entries;
+    this.dirty = true;
+    if (!this.deferWrite) {
+      this.flush();
+      return;
+    }
+    if (this.writeScheduled) return;
+    this.writeScheduled = true;
+    this.deferWrite(() => {
+      this.writeScheduled = false;
+      try {
+        this.flush();
+      } catch (error) {
+        this.onError(error);
+      }
+    });
+  }
+
+  flush() {
+    if (!this.dirty) return false;
+    this.write(this.load());
+    this.dirty = false;
+    return true;
   }
 
   record(post, result) {
@@ -51,9 +131,13 @@ export class DecisionJournal {
     const normalizedIdentity = normalizeTurkish(identity);
     const fingerprint = `${hashText(normalizedIdentity)}-${normalizedIdentity.length}`;
     const timestamp = this.now().toISOString();
-    const entries = this.list();
+    const entries = [...this.load()];
     const existingIndex = entries.findIndex((entry) => entry.id === fingerprint);
     const previous = existingIndex >= 0 ? entries.splice(existingIndex, 1)[0] : null;
+    const decisionFingerprint = makeDecisionFingerprint(title, body, result);
+    const previousDecisionFingerprint = previous?.decisionFingerprint
+      ?? (previous ? makeDecisionFingerprint(previous.title, previous.body, previous) : null);
+    const sameDecision = previousDecisionFingerprint === decisionFingerprint;
 
     const entry = {
       id: fingerprint,
@@ -74,32 +158,34 @@ export class DecisionJournal {
           }))
         : [],
       question: result?.question === true,
-      feedback: previous?.feedback ?? null,
+      decisionFingerprint,
+      feedback: sameDecision ? previous?.feedback ?? null : null,
+      ...(sameDecision && previous?.feedbackAt ? { feedbackAt: previous.feedbackAt } : {}),
       firstSeenAt: previous?.firstSeenAt ?? timestamp,
       lastSeenAt: timestamp,
       occurrences: (Number(previous?.occurrences) || 0) + 1,
     };
 
     entries.push(entry);
-    this.write(entries.slice(-this.maxEntries));
+    this.commit(retainEntries(entries, this.maxEntries));
     return entry.id;
   }
 
   mark(id, feedback) {
     if (!VALID_FEEDBACK.has(feedback)) return false;
-    const entries = this.list();
+    const entries = [...this.load()];
     const entry = entries.find((candidate) => candidate.id === id);
     if (!entry) return false;
     entry.feedback = feedback;
     entry.feedbackAt = this.now().toISOString();
-    this.write(entries);
+    this.commit(entries);
     return true;
   }
 
   exportPayload() {
     const entries = this.list();
     return {
-      schemaVersion: 1,
+      schemaVersion: 2,
       exportedAt: this.now().toISOString(),
       entryCount: entries.length,
       entries,
@@ -107,4 +193,4 @@ export class DecisionJournal {
   }
 }
 
-export const journalTesting = { hashText, parseEntries };
+export const journalTesting = { hashText, makeDecisionFingerprint, parseEntries, retainEntries };

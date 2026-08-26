@@ -1,5 +1,6 @@
 const NEW_POST_SELECTOR = 'shreddit-post';
 const OLD_POST_SELECTOR = '#siteTable > .thing.link, .sitetable > .thing.link';
+const POST_SELECTOR = `${NEW_POST_SELECTOR}, ${OLD_POST_SELECTOR}`;
 
 function includeSelfAndDescendants(root, selector) {
   const found = [];
@@ -13,6 +14,11 @@ export function findPostElements(root = document) {
     ...includeSelfAndDescendants(root, NEW_POST_SELECTOR),
     ...includeSelfAndDescendants(root, OLD_POST_SELECTOR),
   ];
+}
+
+export function findContainingPostElement(node) {
+  const element = node?.nodeType === 1 ? node : node?.parentElement;
+  return element?.closest?.(POST_SELECTOR) ?? null;
 }
 
 function firstText(el, selectors) {

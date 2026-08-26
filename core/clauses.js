@@ -3,8 +3,12 @@
  * kısa Türkçe ifadelerde özne/yüklemi gereksiz yere koparabilir.
  */
 export function splitClauses(input) {
-  return String(input ?? '')
+  const protectedText = String(input ?? '')
+    .replace(/(?<=\d)\.(?=\d)/gu, '\uE000')
+    .replace(/\b(\d+)\.(?=\s*(?:yıl|yil|ay|sene|hafta|gün|gun|kez|defa|sınıf|sinif)\p{L}*)/giu, '$1\uE000');
+
+  return protectedText
     .split(/(?:[.!?;\n]+|\b(?:ama|fakat|ancak|lakin)\b)/giu)
-    .map((part) => part.trim().replace(/^[,–—:\s]+|[,–—:\s]+$/g, ''))
+    .map((part) => part.replaceAll('\uE000', '.').trim().replace(/^[,–—:\s]+|[,–—:\s]+$/g, ''))
     .filter(Boolean);
 }
