@@ -36,7 +36,7 @@ jobs:
         run: npm ci
 
       - name: Test and verify build
-        run: npm run check
+        run: npm run check:dev
 
       - name: Evaluate reference corpus
         run: npm run evaluate

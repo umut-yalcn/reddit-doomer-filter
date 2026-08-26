@@ -84,7 +84,18 @@ assert.equal(migratedSettings.settingsSchemaVersion, 2);
 assert.ok(migratedSettings.subreddits.includes('trgamedeveloper'));
 assert.ok(migrated.menus.some((menu) => menu.label === '✓ r/trgamedeveloper filtresi'));
 
-for (const run of [first, second, third, migrated]) {
+const explicitlyDisabled = boot(`<!doctype html><html><head></head><body>
+  <shreddit-post post-id="bundle-tr-game-disabled" post-title="Oyun sektörü bitti, bölüm değiştirin" subreddit-prefixed-name="r/TrGameDeveloper"></shreddit-post>
+</body></html>`, new Map([
+  ['rdf_settings_v1', JSON.stringify({
+    settingsSchemaVersion: 2,
+    subreddits: ['codingtr', 'turkdev', 'engineeringtr'],
+  })],
+]));
+assert.equal(explicitlyDisabled.dom.window.document.querySelector('shreddit-post').style.display, '');
+assert.ok(explicitlyDisabled.menus.some((menu) => menu.label === '○ r/trgamedeveloper filtresi'));
+
+for (const run of [first, second, third, migrated, explicitlyDisabled]) {
   const unexpected = run.jsdomErrors.filter((error) => !/navigation/i.test(error.message));
   assert.deepEqual(unexpected, []);
   run.dom.window.close();
