@@ -18,6 +18,8 @@ Filtre post başlığı ve gövdesini ayrı ayrı cümle/cümceciklere böler. �
 
 Eşiği geçen post DOM'dan silinmez. Gizlenir ve yerine neden ile birlikte bir **Göster** düğmesi bırakılır. Motor hata verirse fail-open davranır; içerik görünür kalır.
 
+Kişisel kurallar açıksa gizlenen posttaki **Daima göster** düğmesi, kalibrasyon modunda görünür posttaki **Daima gizle** düğmesi düzenlenebilir bir ifade kaydeder. Kurallar yalnız tarayıcıda tutulur; otomatik öğrenme yapılmaz. Birden fazla kural eşleşirse en uzun ifade, eşit uzunlukta ise en son açık tercih kazanır.
+
 Varsayılan eşik 4'tür. Soru başlıklarının özel koruması kapalıdır; “Yazılım bitti mi?” normal bir karamsar başlık gibi değerlendirilir. İsteğe bağlı soru koruması açılırsa yalnız başlık puanı yarıya iner, gövde puanı değişmez.
 
 ## Kurulum
@@ -34,6 +36,7 @@ Userscript menüsünden:
 - Soru başlıklarını koruma seçeneğini değiştirebilirsiniz.
 - Debug gerekçelerini açabilirsiniz.
 - Kalibrasyon düğmelerini açabilirsiniz.
+- Kişisel kuralları açıp kapatabilir, tek tek silebilir, indirebilir veya sıfırlayabilirsiniz.
 - Yerel karar günlüğünü JSON olarak indirebilirsiniz.
 - Üç subreddit filtresini ayrı ayrı açıp kapatabilirsiniz.
 
@@ -59,6 +62,7 @@ npm test
 npm run evaluate
 npm run build
 npm run check
+npm run check:dev
 ```
 
 - `core/normalize.js`: Türkçe ve sansürlü yazım normalizasyonu.
@@ -67,11 +71,14 @@ npm run check
 - `core/content-dom.js`: yeni ve old Reddit post çıkarımı.
 - `core/filter.js`: dinamik feed izleme, gizleme ve geri alma.
 - `core/journal.js`: yerel, sınırlı ve geri bildirimli karar günlüğü.
+- `core/overrides.js`: en fazla 100 yerel daima göster/gizle kuralı ve öncelik çözümü.
 - `corpus/negative-examples.js`: kullanıcıdan alınmış yüksek güvenli negatif örnekler.
 - `userscript/main.js`: ayarlar ve userscript başlangıcı.
 - `test/`: pozitif, karşıt, DOM ve dinamik feed regresyonları.
 
 `npm run evaluate`, projedeki yüksek güvenli negatif corpus'u tanısal olarak ölçer. Komuta ek dosya yolları verilirse Markdown veya metin corpus'ları da ayrıca değerlendirilebilir. `npm run check` bütün `*.test.js` dosyalarını otomatik bulur; build, userscript sözdizimi, sürüm eşleşmesi ve deterministik çıktı denetimlerini birlikte çalıştırır.
+
+`npm run check:dev`, normal kontrollerin ardından adı ve namespace'i üretim betiğinden farklı, otomatik güncelleme adresi taşımayan `dist/reddit-doom-filter.dev.user.js` dosyasını üretir ve uçtan uca DOM duman testini çalıştırır. Üretim ve DEV betikleri aynı Reddit sayfasında eşzamanlı etkinleştirilmemelidir.
 
 ## Gizlilik ve kapsam
 
@@ -79,6 +86,7 @@ npm run check
 - Yalnız tarayıcının yüklediği DOM yerel olarak değerlendirilir.
 - Post metni, tarama geçmişi veya kullanıcı bilgisi dışarı gönderilmez.
 - Kalibrasyon günlüğü yalnız yerel userscript deposunda tutulur ve 500 kayıtla sınırlıdır.
+- Kişisel kurallar yalnız yerel userscript deposunda tutulur ve 100 kayıtla sınırlıdır.
 - Reddit hesabında gerçek engelleme, silme veya moderasyon yapılmaz.
 - İngilizce dil desteği ve yorum filtreleme bu sürümün kapsamında değildir.
 

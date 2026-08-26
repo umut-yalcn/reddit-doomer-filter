@@ -19,7 +19,10 @@
     "test": "node scripts/run-tests.mjs",
     "evaluate": "node scripts/evaluate-corpus.mjs",
     "build": "node build.mjs",
+    "build:dev": "npm run build && node build-dev.mjs",
     "verify:dist": "node scripts/verify-dist.mjs",
+    "verify:dev": "node scripts/verify-dev-dist.mjs",
+    "check:dev": "npm run check && npm run build:dev && node --check dist/reddit-doom-filter.dev.user.js && npm run verify:dev && node scripts/smoke-dev-bundle.mjs",
     "check": "npm test && npm run build && node --check dist/reddit-doom-filter.user.js && npm run verify:dist"
   },
   "devDependencies": {

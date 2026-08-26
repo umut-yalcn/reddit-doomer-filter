@@ -1,12 +1,10 @@
 // ==UserScript==
-// @name         Reddit Karamsarlık Filtresi
-// @namespace    https://github.com/umut-yalcn/reddit-new-filter
-// @version      0.2.0
-// @description  Seçili Türk subredditlerinde karamsar kariyer postlarını yerel olarak gizler.
+// @name         Reddit Karamsarlık Filtresi DEV
+// @namespace    https://github.com/umut-yalcn/reddit-new-filter/dev
+// @version      0.2.0-dev
+// @description  Kişisel göster/gizle kuralları için izole geliştirme sürümü.
 // @homepageURL  https://github.com/umut-yalcn/reddit-new-filter
 // @supportURL   https://github.com/umut-yalcn/reddit-new-filter/issues
-// @updateURL    https://raw.githubusercontent.com/umut-yalcn/reddit-new-filter/main/dist/reddit-doom-filter.user.js
-// @downloadURL  https://raw.githubusercontent.com/umut-yalcn/reddit-new-filter/main/dist/reddit-doom-filter.user.js
 // @match        https://www.reddit.com/*
 // @match        https://old.reddit.com/*
 // @grant        GM_getValue

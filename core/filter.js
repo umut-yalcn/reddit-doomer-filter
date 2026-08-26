@@ -11,6 +11,7 @@ export const DEFAULT_SETTINGS = {
   protectQuestions: false,
   debug: false,
   calibrationMode: false,
+  personalOverridesEnabled: true,
   subreddits: ['codingtr', 'turkdev', 'engineeringtr'],
 };
 
@@ -48,7 +49,14 @@ function signature(post) {
 }
 
 export class PostFilter {
-  constructor({ doc = document, settings = {}, onDecision = null, onFeedback = null } = {}) {
+  constructor({
+    doc = document,
+    settings = {},
+    onDecision = null,
+    onFeedback = null,
+    matchPersonalRule = null,
+    onCreatePersonalRule = null,
+  } = {}) {
     this.doc = doc;
     this.settings = { ...DEFAULT_SETTINGS, ...settings };
     this.settings.subreddits = [...(settings.subreddits ?? DEFAULT_SETTINGS.subreddits)].map((s) => s.toLowerCase());
@@ -59,6 +67,8 @@ export class PostFilter {
     this.presentations = new WeakMap();
     this.onDecision = typeof onDecision === 'function' ? onDecision : null;
     this.onFeedback = typeof onFeedback === 'function' ? onFeedback : null;
+    this.matchPersonalRule = typeof matchPersonalRule === 'function' ? matchPersonalRule : null;
+    this.onCreatePersonalRule = typeof onCreatePersonalRule === 'function' ? onCreatePersonalRule : null;
   }
 
   start() {
@@ -147,16 +157,46 @@ export class PostFilter {
       this.signatures.set(element, currentSignature);
       this.clearPresentation(element);
 
-      const result = scorePost(post, this.settings);
+      const result = this.applyPersonalRule(post, scorePost(post, this.settings));
       const decisionId = this.emitDecision(post, result);
       element.setAttribute(STATE_ATTR, result.hidden ? 'hidden' : 'shown');
       if (result.hidden) this.hidePost(post, result, decisionId);
-      else if (this.settings.calibrationMode) this.addShownFeedback(post, decisionId);
+      else if (this.settings.calibrationMode && result.personalRule?.action !== 'show') {
+        this.addShownFeedback(post, decisionId);
+      }
     } catch (error) {
       // Fail-open: filtre hatası hiçbir içeriği görünmez yapmamalı.
       element.setAttribute(STATE_ATTR, 'error');
       console.warn('[Reddit Karamsarlık Filtresi] Post değerlendirilemedi:', error);
     }
+  }
+
+  applyPersonalRule(post, result) {
+    if (!this.matchPersonalRule) return result;
+    let rule = null;
+    try {
+      rule = this.matchPersonalRule(post);
+    } catch (error) {
+      console.warn('[Reddit Karamsarlık Filtresi] Kişisel kurallar okunamadı:', error);
+      return result;
+    }
+    if (!rule || !['show', 'hide'].includes(rule.action)) return result;
+
+    const hidden = rule.action === 'hide';
+    const reason = hidden ? 'kişisel daima gizle kuralı' : 'kişisel daima göster kuralı';
+    return {
+      ...result,
+      hidden,
+      score: hidden ? Math.max(result.score, result.threshold) : result.score,
+      source: 'personal',
+      clause: rule.phrase || result.clause,
+      reasons: [{ category: 'personal-rule', score: 0, reason }, ...result.reasons],
+      personalRule: {
+        id: String(rule.id ?? ''),
+        action: rule.action,
+        phrase: String(rule.phrase ?? ''),
+      },
+    };
   }
 
   emitDecision(post, result) {
@@ -180,6 +220,27 @@ export class PostFilter {
       return this.onFeedback(decisionId, feedback) !== false;
     } catch (error) {
       console.warn('[Reddit Karamsarlık Filtresi] Geri bildirim kaydedilemedi:', error);
+      return false;
+    }
+  }
+
+  emitPersonalRule(action, post, result) {
+    if (!this.onCreatePersonalRule) return false;
+    const suggestedPhrase = String(result?.clause || post?.title || '').trim();
+    try {
+      return this.onCreatePersonalRule({
+        action,
+        suggestedPhrase,
+        post: {
+          id: post?.id,
+          subreddit: post?.subreddit,
+          title: post?.title,
+          body: post?.body,
+        },
+        result,
+      }) !== false;
+    } catch (error) {
+      console.warn('[Reddit Karamsarlık Filtresi] Kişisel kural kaydedilemedi:', error);
       return false;
     }
   }
@@ -218,6 +279,17 @@ export class PostFilter {
     }, { once: true });
 
     bar.append(reason, show);
+    if (this.onCreatePersonalRule) {
+      const alwaysShow = this.doc.createElement('button');
+      alwaysShow.type = 'button';
+      alwaysShow.textContent = 'Daima göster';
+      alwaysShow.addEventListener('click', () => {
+        if (!this.emitPersonalRule('show', post, result)) return;
+        alwaysShow.disabled = true;
+        alwaysShow.textContent = 'Kaydedildi';
+      }, { once: true });
+      bar.append(alwaysShow);
+    }
     if (decisionId && this.onFeedback) {
       const incorrect = this.doc.createElement('button');
       incorrect.type = 'button';
@@ -254,6 +326,17 @@ export class PostFilter {
     }, { once: true });
 
     review.append(label, missed);
+    if (this.onCreatePersonalRule) {
+      const alwaysHide = this.doc.createElement('button');
+      alwaysHide.type = 'button';
+      alwaysHide.textContent = 'Daima gizle';
+      alwaysHide.addEventListener('click', () => {
+        if (!this.emitPersonalRule('hide', post, { clause: post.title })) return;
+        alwaysHide.disabled = true;
+        alwaysHide.textContent = 'Kaydedildi';
+      }, { once: true });
+      review.append(alwaysHide);
+    }
     post.element.parentNode.insertBefore(review, post.element.nextSibling);
     this.presentations.set(post.element, { kind: 'review', bar: review, previousDisplay: post.element.style.display });
   }

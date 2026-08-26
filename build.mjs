@@ -30,6 +30,7 @@ const banner = `// ==UserScript==
 // kapsamına birleştiren küçük ve denetlenebilir bir build yeterli.
 const modules = [
   'core/normalize.js',
+  'core/overrides.js',
   'core/journal.js',
   'core/clauses.js',
   'core/scorer.js',

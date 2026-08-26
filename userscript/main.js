@@ -1,8 +1,10 @@
 import { DEFAULT_SETTINGS, PostFilter } from '../core/filter.js';
 import { DecisionJournal } from '../core/journal.js';
+import { PersonalRuleStore } from '../core/overrides.js';
 
 const SETTINGS_KEY = 'rdf_settings_v1';
 const JOURNAL_KEY = 'rdf_journal_v1';
+const PERSONAL_RULES_KEY = 'rdf_personal_rules_v1';
 
 function loadSettings() {
   try {
@@ -17,6 +19,7 @@ function loadSettings() {
     merged.subreddits = Array.isArray(merged.subreddits)
       ? [...new Set(merged.subreddits.map((item) => String(item).trim().toLowerCase()).filter(Boolean))]
       : [...DEFAULT_SETTINGS.subreddits];
+    merged.personalOverridesEnabled = merged.personalOverridesEnabled !== false;
     return merged;
   } catch {
     return { ...DEFAULT_SETTINGS };
@@ -30,6 +33,25 @@ function saveSettings(settings) {
 }
 
 const settings = loadSettings();
+
+function readPersonalRules() {
+  return typeof GM_getValue === 'function'
+    ? GM_getValue(PERSONAL_RULES_KEY, '[]')
+    : localStorage.getItem(PERSONAL_RULES_KEY) || '[]';
+}
+
+function writePersonalRules(rules) {
+  const raw = JSON.stringify(rules);
+  if (typeof GM_setValue === 'function') GM_setValue(PERSONAL_RULES_KEY, raw);
+  else localStorage.setItem(PERSONAL_RULES_KEY, raw);
+}
+
+const personalRules = new PersonalRuleStore({
+  read: readPersonalRules,
+  write: writePersonalRules,
+  maxRules: 100,
+  onError: (error) => console.warn('[Reddit Karamsarlık Filtresi] Kişisel kural depolama hatası:', error),
+});
 
 function readJournal() {
   return typeof GM_getValue === 'function'
@@ -61,6 +83,30 @@ const filter = new PostFilter({
   settings,
   onDecision: (post, result) => journal.record(post, result),
   onFeedback: (decisionId, feedback) => journal.mark(decisionId, feedback),
+  matchPersonalRule: settings.personalOverridesEnabled
+    ? (post) => personalRules.match(post)
+    : null,
+  onCreatePersonalRule: settings.personalOverridesEnabled
+    ? ({ action, suggestedPhrase }) => {
+        const instruction = action === 'show'
+          ? 'Bu ifadeyi içeren postları daima göster:'
+          : 'Bu ifadeyi içeren postları daima gizle:';
+        const phrase = globalThis.prompt?.(
+          `${instruction}\n\nİfadeyi daraltabilir veya düzeltebilirsin. Çok genel ifadeler daha fazla postu etkiler.`,
+          suggestedPhrase,
+        );
+        if (phrase === null || phrase === undefined) return false;
+        try {
+          personalRules.add(action, phrase);
+          globalThis.alert?.('Kişisel kural yalnız bu tarayıcıya kaydedildi.');
+          location.reload();
+          return true;
+        } catch (error) {
+          globalThis.alert?.(`Kural kaydedilemedi: ${error.message}`);
+          return false;
+        }
+      }
+    : null,
 }).start();
 
 function registerMenu(label, action) {
@@ -89,6 +135,71 @@ registerMenu(settings.calibrationMode ? 'Kalibrasyon düğmelerini kapat' : 'Kal
   settings.calibrationMode = !settings.calibrationMode;
   saveSettings(settings);
   location.reload();
+});
+
+registerMenu(
+  settings.personalOverridesEnabled ? 'Kişisel kuralları kapat' : 'Kişisel kuralları aç',
+  () => {
+    settings.personalOverridesEnabled = !settings.personalOverridesEnabled;
+    saveSettings(settings);
+    location.reload();
+  },
+);
+
+registerMenu(`Kişisel kuralları yönet (${personalRules.list().length})`, () => {
+  const rules = personalRules.list();
+  if (rules.length === 0) {
+    globalThis.alert?.('Henüz kişisel göster/gizle kuralı yok.');
+    return;
+  }
+  const lines = rules.map((rule, index) => {
+    const action = rule.action === 'show' ? 'GÖSTER' : 'GİZLE';
+    const phrase = rule.phrase.length > 90 ? `${rule.phrase.slice(0, 87)}...` : rule.phrase;
+    return `${index + 1}. [${action}] ${phrase}`;
+  });
+  const choice = globalThis.prompt?.(
+    `Kişisel kurallar:\n\n${lines.join('\n')}\n\nSilmek istediğin kuralın numarasını yaz. İptal için boş bırak.`,
+    '',
+  );
+  if (!choice?.trim()) return;
+  const index = Number(choice.trim()) - 1;
+  if (!Number.isInteger(index) || !rules[index]) {
+    globalThis.alert?.('Geçerli bir kural numarası girilmedi.');
+    return;
+  }
+  if (!globalThis.confirm?.(`“${rules[index].phrase}” kuralı silinsin mi?`)) return;
+  try {
+    personalRules.remove(rules[index].id);
+    location.reload();
+  } catch (error) {
+    globalThis.alert?.(`Kural silinemedi: ${error.message}`);
+  }
+});
+
+registerMenu(`Kişisel kuralları indir (${personalRules.list().length})`, () => {
+  const raw = JSON.stringify(personalRules.exportPayload(), null, 2);
+  const blob = new Blob([raw], { type: 'application/json;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = `reddit-karamsarlik-kisisel-kurallar-${new Date().toISOString().slice(0, 10)}.json`;
+  anchor.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
+
+registerMenu('Kişisel kuralları sıfırla', () => {
+  const count = personalRules.list().length;
+  if (count === 0) {
+    globalThis.alert?.('Silinecek kişisel kural yok.');
+    return;
+  }
+  if (!globalThis.confirm?.(`${count} kişisel kuralın tamamı silinsin mi?`)) return;
+  try {
+    personalRules.clear();
+    location.reload();
+  } catch (error) {
+    globalThis.alert?.(`Kurallar silinemedi: ${error.message}`);
+  }
 });
 
 registerMenu(`Karar günlüğünü indir (${journal.list().length})`, () => {
