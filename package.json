@@ -4,6 +4,14 @@
   "private": true,
   "type": "module",
   "description": "Türkçe Reddit postlarında karamsar kariyer söylemlerini yerel olarak gizleyen userscript.",
+  "homepage": "https://github.com/umut-yalcn/reddit-new-filter",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/umut-yalcn/reddit-new-filter.git"
+  },
+  "bugs": {
+    "url": "https://github.com/umut-yalcn/reddit-new-filter/issues"
+  },
   "engines": {
     "node": "^22.22.2 || ^24.15.0 || >=26.0.0"
   },

@@ -4,12 +4,20 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const OUTPUT = join(ROOT, 'dist', 'reddit-doom-filter.user.js');
+const packageJson = JSON.parse(await readFile(join(ROOT, 'package.json'), 'utf8'));
+const repositoryUrl = String(packageJson.homepage).replace(/\/$/, '');
+const rawBaseUrl = repositoryUrl.replace('https://github.com/', 'https://raw.githubusercontent.com/');
+const distributionUrl = `${rawBaseUrl}/main/dist/reddit-doom-filter.user.js`;
 
 const banner = `// ==UserScript==
 // @name         Reddit Karamsarlık Filtresi
-// @namespace    https://github.com/umut-yalcn/reddit-filter
-// @version      0.2.0
+// @namespace    ${repositoryUrl}
+// @version      ${packageJson.version}
 // @description  Seçili Türk subredditlerinde karamsar kariyer postlarını yerel olarak gizler.
+// @homepageURL  ${repositoryUrl}
+// @supportURL   ${packageJson.bugs.url}
+// @updateURL    ${distributionUrl}
+// @downloadURL  ${distributionUrl}
 // @match        https://www.reddit.com/*
 // @match        https://old.reddit.com/*
 // @grant        GM_getValue

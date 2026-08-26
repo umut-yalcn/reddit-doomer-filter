@@ -1,5 +1,7 @@
 # Reddit Karamsarlık Filtresi
 
+[![CI](https://github.com/umut-yalcn/reddit-new-filter/actions/workflows/ci.yml/badge.svg)](https://github.com/umut-yalcn/reddit-new-filter/actions/workflows/ci.yml)
+
 Seçili Türkçe teknoloji/mühendislik subredditlerindeki karamsar kariyer postlarını tarayıcıda yerel olarak gizleyen userscript.
 
 İlk sürüm yalnız postları işler:
@@ -21,8 +23,10 @@ Varsayılan eşik 4'tür. Soru başlıklarının özel koruması kapalıdır; �
 ## Kurulum
 
 1. Tampermonkey veya Violentmonkey kurun.
-2. `dist/reddit-doom-filter.user.js` dosyasını userscript yöneticisinde açın.
+2. **[Userscript'i yükle](https://raw.githubusercontent.com/umut-yalcn/reddit-new-filter/main/dist/reddit-doom-filter.user.js)** bağlantısını açın.
 3. Kurulumu onaylayın ve Reddit'i yenileyin.
+
+Kurulu userscript yeni sürümleri aynı dağıtım adresinden otomatik olarak denetler. Kaynak kod [GitHub reposunda](https://github.com/umut-yalcn/reddit-new-filter), hata ve öneriler [Issues](https://github.com/umut-yalcn/reddit-new-filter/issues) bölümünde tutulur.
 
 Userscript menüsünden:
 
