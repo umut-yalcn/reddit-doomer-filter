@@ -1,0 +1,19 @@
+{
+  "name": "reddit-doom-filter",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "description": "Türkçe Reddit postlarında karamsar kariyer söylemlerini yerel olarak gizleyen userscript.",
+  "engines": {
+    "node": "^22.22.2 || ^24.15.0 || >=26.0.0"
+  },
+  "scripts": {
+    "test": "node --test test/normalize.test.js test/journal.test.js test/clauses.test.js test/scorer.test.js test/user-examples.test.js test/benign.test.js test/dom.test.js test/filter.test.js",
+    "evaluate": "node scripts/evaluate-corpus.mjs",
+    "build": "node build.mjs",
+    "check": "npm test && npm run build"
+  },
+  "devDependencies": {
+    "jsdom": "^30.0.1"
+  }
+}

@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="utf-8">
+    <title>Reddit Karamsarlık Filtresi — tarayıcı testi</title>
+  </head>
+  <body>
+    <script>
+      if (new URLSearchParams(location.search).has('calibration')) {
+        localStorage.setItem('rdf_settings_v1', JSON.stringify({
+          enabled: true,
+          threshold: 4,
+          protectQuestions: false,
+          debug: false,
+          calibrationMode: true,
+          subreddits: ['codingtr', 'turkdev', 'engineeringtr'],
+        }));
+      }
+    </script>
+    <main>
+      <shreddit-post post-id="doom-title" post-title="Yazılım bitti" subreddit-prefixed-name="r/CodingTR">
+        <div slot="text-body">Normal gövde.</div>
+      </shreddit-post>
+
+      <shreddit-post post-id="normal" post-title="Yeni projeme başladım" subreddit-prefixed-name="r/CodingTR">
+        <div slot="text-body">Yapay zekâ ile kod yazmayı öğreniyorum.</div>
+      </shreddit-post>
+
+      <shreddit-post post-id="doom-question" post-title="Bilgisayar mühendisliği gerçekten bitmiş mi?" subreddit-prefixed-name="r/EngineeringTR">
+      </shreddit-post>
+
+      <shreddit-post post-id="rebuttal" post-title="Yazılım bitti" subreddit-prefixed-name="r/TurkDev">
+        <div slot="text-body">Bu söylem saçmalık, sektör gayet iyi.</div>
+      </shreddit-post>
+
+      <shreddit-post post-id="outside" post-title="Yazılım bitti" subreddit-prefixed-name="r/programming">
+      </shreddit-post>
+    </main>
+    <script src="../../dist/reddit-doom-filter.user.js"></script>
+    <script>
+      if (new URLSearchParams(location.search).has('inspect-journal')) {
+        const output = document.createElement('output');
+        output.id = 'fixture-journal-status';
+        const render = () => {
+          try {
+            const entries = JSON.parse(localStorage.getItem('rdf_journal_v1') || '[]');
+            const feedback = entries.filter((entry) => entry.feedback).length;
+            output.textContent = `Günlük: ${entries.length} · Etiketli: ${feedback}`;
+          } catch {
+            output.textContent = 'Günlük okunamadı';
+          }
+        };
+        document.body.append(output);
+        document.addEventListener('click', () => setTimeout(render, 0));
+        render();
+      }
+    </script>
+  </body>
+</html>
