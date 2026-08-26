@@ -37,6 +37,17 @@ test('hedef dışı subreddit ve normal post görünür kalır', () => {
   }
 });
 
+test('r/TrGameDeveloper varsayılan hedef olarak filtrelenir', () => {
+  const dom = new JSDOM(`<!doctype html><body>
+    <shreddit-post post-id="tr-game-developer" post-title="Oyun sektörü bitti, bölüm değiştirin" subreddit-prefixed-name="r/TrGameDeveloper"></shreddit-post>
+  </body>`, { url: 'https://www.reddit.com/r/TrGameDeveloper/' });
+  const filter = new PostFilter({ doc: dom.window.document });
+  filter.processTree(dom.window.document);
+
+  assert.equal(dom.window.document.querySelector('shreddit-post').style.display, 'none');
+  assert.ok(dom.window.document.querySelector('.rdf-bar'));
+});
+
 test('MutationObserver sonradan eklenen postu işler', async () => {
   const dom = new JSDOM('<!doctype html><html><head></head><body><main></main></body></html>', {
     url: 'https://www.reddit.com/r/TurkDev/new/',

@@ -5,6 +5,8 @@ import { PersonalRuleStore } from '../core/overrides.js';
 const SETTINGS_KEY = 'rdf_settings_v1';
 const JOURNAL_KEY = 'rdf_journal_v1';
 const PERSONAL_RULES_KEY = 'rdf_personal_rules_v1';
+const SETTINGS_SCHEMA_VERSION = 2;
+let settingsMigrated = false;
 
 function loadSettings() {
   try {
@@ -12,6 +14,7 @@ function loadSettings() {
       ? GM_getValue(SETTINGS_KEY, null)
       : localStorage.getItem(SETTINGS_KEY);
     const parsed = raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : {};
+    const storedSchemaVersion = Number(parsed.settingsSchemaVersion) || 1;
     const merged = { ...DEFAULT_SETTINGS, ...parsed };
     merged.threshold = Number.isFinite(Number(merged.threshold))
       ? Math.max(1, Math.min(20, Number(merged.threshold)))
@@ -19,6 +22,11 @@ function loadSettings() {
     merged.subreddits = Array.isArray(merged.subreddits)
       ? [...new Set(merged.subreddits.map((item) => String(item).trim().toLowerCase()).filter(Boolean))]
       : [...DEFAULT_SETTINGS.subreddits];
+    if (storedSchemaVersion < SETTINGS_SCHEMA_VERSION && !merged.subreddits.includes('trgamedeveloper')) {
+      merged.subreddits.push('trgamedeveloper');
+    }
+    merged.settingsSchemaVersion = SETTINGS_SCHEMA_VERSION;
+    settingsMigrated = storedSchemaVersion < SETTINGS_SCHEMA_VERSION;
     merged.personalOverridesEnabled = merged.personalOverridesEnabled !== false;
     return merged;
   } catch {
@@ -33,6 +41,13 @@ function saveSettings(settings) {
 }
 
 const settings = loadSettings();
+if (settingsMigrated) {
+  try {
+    saveSettings(settings);
+  } catch (error) {
+    console.warn('[Reddit Karamsarlık Filtresi] Ayar geçişi kaydedilemedi:', error);
+  }
+}
 
 function readPersonalRules() {
   return typeof GM_getValue === 'function'

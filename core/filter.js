@@ -6,13 +6,14 @@ const STYLE_ID = 'rdf-style';
 const STATE_ATTR = 'data-rdf-state';
 
 export const DEFAULT_SETTINGS = {
+  settingsSchemaVersion: 2,
   enabled: true,
   threshold: 4,
   protectQuestions: false,
   debug: false,
   calibrationMode: false,
   personalOverridesEnabled: true,
-  subreddits: ['codingtr', 'turkdev', 'engineeringtr'],
+  subreddits: ['codingtr', 'turkdev', 'engineeringtr', 'trgamedeveloper'],
 };
 
 function injectStyle(doc) {

@@ -70,7 +70,21 @@ alwaysHide.click();
 const hideRules = JSON.parse(third.storage.get('rdf_personal_rules_v1'));
 assert.equal(hideRules[0].action, 'hide');
 
-for (const run of [first, second, third]) {
+const legacySettings = new Map([
+  ['rdf_settings_v1', JSON.stringify({
+    subreddits: ['codingtr', 'turkdev', 'engineeringtr'],
+  })],
+]);
+const migrated = boot(`<!doctype html><html><head></head><body>
+  <shreddit-post post-id="bundle-tr-game" post-title="Oyun sektörü bitti, bölüm değiştirin" subreddit-prefixed-name="r/TrGameDeveloper"></shreddit-post>
+</body></html>`, legacySettings);
+assert.equal(migrated.dom.window.document.querySelector('shreddit-post').style.display, 'none');
+const migratedSettings = JSON.parse(migrated.storage.get('rdf_settings_v1'));
+assert.equal(migratedSettings.settingsSchemaVersion, 2);
+assert.ok(migratedSettings.subreddits.includes('trgamedeveloper'));
+assert.ok(migrated.menus.some((menu) => menu.label === '✓ r/trgamedeveloper filtresi'));
+
+for (const run of [first, second, third, migrated]) {
   const unexpected = run.jsdomErrors.filter((error) => !/navigation/i.test(error.message));
   assert.deepEqual(unexpected, []);
   run.dom.window.close();

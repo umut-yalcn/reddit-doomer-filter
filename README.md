@@ -9,6 +9,7 @@ Seçili Türkçe teknoloji/mühendislik subredditlerindeki karamsar kariyer post
 - r/CodingTR
 - r/TurkDev
 - r/EngineeringTR
+- r/TrGameDeveloper
 
 Yorum filtreleme sonraki fazdır.
 
