@@ -54,6 +54,14 @@ test('geri bildirimi karara bağlar ve dışa aktarır', () => {
   assert.equal(payload.entries[0].feedback, 'false-negative');
 });
 
+test('yorum kararını postlardan ayrı tür ve kimlikle saklar', () => {
+  const { journal } = memoryJournal();
+  const postId = journal.record({ id: 'shared', subreddit: 'CodingTR', title: 'Başlık', body: '' }, result);
+  const commentId = journal.record({ kind: 'comment', id: 'shared', subreddit: 'CodingTR', title: '', body: 'Yazılım bitti' }, result);
+  assert.notEqual(commentId, postId);
+  assert.deepEqual(journal.list().map((entry) => entry.kind), ['post', 'comment']);
+});
+
 test('karar değiştiğinde önceki karara ait geri bildirimi taşımaz', () => {
   const { journal } = memoryJournal();
   const post = { id: 't3_changed', subreddit: 'CodingTR', title: 'Yazılım bitti', body: '' };

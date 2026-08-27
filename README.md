@@ -2,21 +2,22 @@
 
 [![CI](https://github.com/umut-yalcn/reddit-new-filter/actions/workflows/ci.yml/badge.svg)](https://github.com/umut-yalcn/reddit-new-filter/actions/workflows/ci.yml)
 
-Seçili Türkçe teknoloji/mühendislik subredditlerindeki karamsar kariyer postlarını tarayıcıda yerel olarak gizleyen userscript.
+Seçili Türkçe teknoloji/mühendislik subredditlerindeki karamsar kariyer postlarını ve yorumlarını tarayıcıda yerel olarak gizleyen userscript.
 
-İlk sürüm yalnız postları işler:
+Hedef topluluklar:
 
 - r/CodingTR
 - r/TurkDev
 - r/EngineeringTR
-
-Yorum filtreleme sonraki fazdır.
+- r/TrGameDeveloper
 
 ## Davranış
 
 Filtre post başlığı ve gövdesini ayrı ayrı cümle/cümceciklere böler. “Yazılım bitti”, “CENG'in geleceği yok”, “tıp oku”, “AI işimizi elimizden aldı” gibi sinyalleri Türkçe çekim ve yazım varyasyonlarıyla puanlar. Karar ilgisiz cümlelerin toplamından değil en güçlü cümlecikten çıkar.
 
 Eşiği geçen post DOM'dan silinmez. Gizlenir ve yerine neden ile birlikte bir **Göster** düğmesi bırakılır. Motor hata verirse fail-open davranır; içerik görünür kalır.
+
+Yorumlar aynı motorla ayrı ayrı değerlendirilir. Bir yorum gizlendiğinde yalnız o yorumun kendi metni ve işlem satırı kapanır; alt yanıtları görünür kalır. Yorum filtresi userscript menüsünden post filtresinden bağımsız kapatılabilir.
 
 Varsayılan eşik 4'tür. Soru başlıklarının özel koruması kapalıdır; “Yazılım bitti mi?” normal bir karamsar başlık gibi değerlendirilir. İsteğe bağlı soru koruması açılırsa yalnız başlık puanı yarıya iner, gövde puanı değişmez.
 
@@ -34,15 +35,16 @@ Userscript menüsünden:
 - Soru başlıklarını koruma seçeneğini değiştirebilirsiniz.
 - Debug gerekçelerini açabilirsiniz.
 - Kalibrasyon düğmelerini açabilirsiniz.
+- Yorum filtresini bağımsız açıp kapatabilirsiniz.
 - Yerel karar günlüğünü JSON olarak indirebilirsiniz.
-- Üç subreddit filtresini ayrı ayrı açıp kapatabilirsiniz.
+- Dört subreddit filtresini ayrı ayrı açıp kapatabilirsiniz.
 
 ## Kalibrasyon ve geri bildirim
 
-Filtre, hedef subredditlerde değerlendirdiği en fazla 500 benzersiz post kararını yalnız tarayıcıdaki userscript deposunda saklar. Aynı Reddit postu tekrar işlendiğinde yeni kayıt oluşturmak yerine mevcut kaydın görülme sayısı güncellenir. Elle etiketlenmiş kayıtlar sınır uygulanırken etiketsiz kayıtlardan önce korunur.
+Filtre, hedef subredditlerde değerlendirdiği en fazla 500 benzersiz post/yorum kararını yalnız tarayıcıdaki userscript deposunda saklar. Aynı Reddit içeriği tekrar işlendiğinde yeni kayıt oluşturmak yerine mevcut kaydın görülme sayısı güncellenir. Elle etiketlenmiş kayıtlar sınır uygulanırken etiketsiz kayıtlardan önce korunur.
 
-- Gizlenen postlarda **Yanlış gizlendi** düğmesi yanlış pozitif etiketi kaydeder ve postu geri getirir.
-- Userscript menüsünden kalibrasyon modu açılırsa görünür bırakılan postlarda **Gizlenmeliydi** düğmesi belirir.
+- Gizlenen post ve yorumlarda **Yanlış gizlendi** düğmesi yanlış pozitif etiketi kaydeder ve içeriği geri getirir.
+- Userscript menüsünden kalibrasyon modu açılırsa görünür bırakılan post ve yorumlarda **Gizlenmeliydi** düğmesi belirir.
 - **Karar günlüğünü indir** komutu kararları, puanları, tetiklenen cümleyi ve kullanıcı geri bildirimini yerel bir JSON dosyasına aktarır.
 
 Kalibrasyon modu varsayılan olarak kapalıdır. Günlük otomatik olarak dışarı gönderilmez; indirme yalnız menü komutu çalıştırıldığında yapılır.
@@ -59,13 +61,14 @@ npm test
 npm run evaluate
 npm run build
 npm run check
+npm run check:comments-dev
 ```
 
 - `core/normalize.js`: Türkçe ve sansürlü yazım normalizasyonu.
 - `core/clauses.js`: cümle/cümlecik ayrımı.
 - `core/scorer.js`: DOM'dan bağımsız puan ve karşıt anlatım motoru.
-- `core/content-dom.js`: yeni ve old Reddit post çıkarımı.
-- `core/filter.js`: dinamik feed izleme, gizleme ve geri alma.
+- `core/content-dom.js`: yeni ve old Reddit post/yorum çıkarımı.
+- `core/filter.js`: dinamik post/yorum izleme, güvenli gizleme ve geri alma.
 - `core/journal.js`: yerel, sınırlı ve geri bildirimli karar günlüğü.
 - `corpus/negative-examples.js`: kullanıcıdan alınmış yüksek güvenli negatif örnekler.
 - `userscript/main.js`: ayarlar ve userscript başlangıcı.
@@ -73,14 +76,16 @@ npm run check
 
 `npm run evaluate`, projedeki yüksek güvenli negatif corpus'u tanısal olarak ölçer. Komuta ek dosya yolları verilirse Markdown veya metin corpus'ları da ayrıca değerlendirilebilir. `npm run check` bütün `*.test.js` dosyalarını otomatik bulur; build, userscript sözdizimi, sürüm eşleşmesi ve deterministik çıktı denetimlerini birlikte çalıştırır.
 
+`npm run check:comments-dev`, üretim kontrollerine ek olarak adı ve namespace'i farklı, otomatik güncelleme adresi taşımayan `dist/reddit-doom-filter.comments-dev.user.js` dosyasını ve post/yorum bundle duman testini doğrular.
+
 ## Gizlilik ve kapsam
 
 - Reddit API veya harici scraping servisi kullanılmaz.
 - Yalnız tarayıcının yüklediği DOM yerel olarak değerlendirilir.
-- Post metni, tarama geçmişi veya kullanıcı bilgisi dışarı gönderilmez.
+- Post/yorum metni, tarama geçmişi veya kullanıcı bilgisi dışarı gönderilmez.
 - Kalibrasyon günlüğü yalnız yerel userscript deposunda tutulur ve 500 kayıtla sınırlıdır.
 - Reddit hesabında gerçek engelleme, silme veya moderasyon yapılmaz.
-- İngilizce dil desteği ve yorum filtreleme bu sürümün kapsamında değildir.
+- İngilizce dil desteği bu sürümün kapsamında değildir.
 
 ## Bilinen sınırlar
 

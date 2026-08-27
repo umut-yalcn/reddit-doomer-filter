@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="utf-8">
+    <title>Yorum filtresi tarayıcı duman testi</title>
+    <style>
+      body { max-width: 760px; margin: 2rem auto; font-family: system-ui, sans-serif; }
+      shreddit-comment { display: block; margin: 1rem 0; padding: .8rem; border-left: 3px solid #bbb; }
+      shreddit-comment shreddit-comment { margin-left: 2rem; }
+      [slot="commentMeta"] { font-weight: 700; }
+      [slot="comment"] { margin: .6rem 0; }
+    </style>
+    <script>
+      const fixtureStorage = new Map();
+      window.GM_getValue = (key, fallback) => fixtureStorage.has(key) ? fixtureStorage.get(key) : fallback;
+      window.GM_setValue = (key, value) => fixtureStorage.set(key, value);
+      window.GM_registerMenuCommand = () => {};
+    </script>
+  </head>
+  <body>
+    <h1>Yorum filtresi tarayıcı duman testi</h1>
+    <shreddit-post post-id="normal-post" post-title="C++ projem" subreddit-prefixed-name="r/CodingTR"></shreddit-post>
+    <shreddit-comment thingid="t1_browser_parent" permalink="/r/CodingTR/comments/post/comment/parent/">
+      <details open>
+        <div slot="commentMeta">negatif-yorum</div>
+        <div slot="comment">AI ile beraber kod yazma da bitti zaten.</div>
+        <div slot="actionRow">Yanıtla</div>
+        <shreddit-comment thingid="t1_browser_child" permalink="/r/CodingTR/comments/post/comment/child/" slot="children-t1_browser_parent-0">
+          <details open>
+            <div slot="commentMeta">açıklama-sorusu</div>
+            <div slot="comment">AI kod yazma devri bitti derken anlamadım ben.</div>
+            <div slot="actionRow">Yanıtla</div>
+          </details>
+        </shreddit-comment>
+      </details>
+    </shreddit-comment>
+    <script src="../../dist/reddit-doom-filter.comments-dev.user.js"></script>
+  </body>
+</html>

@@ -1,4 +1,11 @@
-import { extractPost, findContainingPostElement, findPostElements } from './content-dom.js';
+import {
+  extractComment,
+  extractPost,
+  findCommentElements,
+  findContainingCommentElement,
+  findContainingPostElement,
+  findPostElements,
+} from './content-dom.js';
 import { normalizeTurkish } from './normalize.js';
 import { scorePost } from './scorer.js';
 
@@ -7,11 +14,12 @@ const STATE_ATTR = 'data-rdf-state';
 
 export const DEFAULT_SETTINGS = {
   enabled: true,
+  filterComments: true,
   threshold: 4,
   protectQuestions: false,
   debug: false,
   calibrationMode: false,
-  subreddits: ['codingtr', 'turkdev', 'engineeringtr'],
+  subreddits: ['codingtr', 'turkdev', 'engineeringtr', 'trgamedeveloper'],
 };
 
 function injectStyle(doc) {
@@ -43,8 +51,8 @@ function injectStyle(doc) {
   (doc.head || doc.documentElement).appendChild(style);
 }
 
-function signature(post) {
-  return normalizeTurkish(`${post.subreddit}|${post.title}|${post.body}`);
+function signature(content) {
+  return normalizeTurkish(`${content.kind ?? 'post'}|${content.subreddit}|${content.title}|${content.body}`);
 }
 
 export class PostFilter {
@@ -91,6 +99,8 @@ export class PostFilter {
         'subreddit-name',
         'data-subreddit',
         'data-fullname',
+        'permalink',
+        'thingid',
         'slot',
         'data-post-click-location',
         'id',
@@ -105,6 +115,11 @@ export class PostFilter {
   }
 
   enqueueNode(node) {
+    const comment = findContainingCommentElement(node);
+    if (comment) {
+      this.pending.add(comment);
+      return;
+    }
     const post = findContainingPostElement(node);
     if (post) {
       this.pending.add(post);
@@ -112,7 +127,9 @@ export class PostFilter {
     }
 
     const element = node?.nodeType === 1 ? node : node?.parentElement;
-    if (element && findPostElements(element).length > 0) this.pending.add(element);
+    if (element && (findPostElements(element).length > 0 || findCommentElements(element).length > 0)) {
+      this.pending.add(element);
+    }
   }
 
   schedule() {
@@ -135,12 +152,20 @@ export class PostFilter {
     if (!this.settings.enabled) return;
     injectStyle(this.doc);
     for (const element of findPostElements(root)) this.processPost(element);
+    if (this.settings.filterComments) {
+      for (const element of findCommentElements(root)) this.processComment(element);
+    }
   }
 
   processPost(element) {
     try {
       const post = extractPost(element);
-      if (!post.subreddit || !this.settings.subreddits.includes(post.subreddit)) return;
+      if (!post.subreddit || !this.settings.subreddits.includes(post.subreddit)) {
+        this.clearPresentation(element);
+        this.signatures.delete(element);
+        element.setAttribute(STATE_ATTR, 'shown');
+        return;
+      }
 
       const currentSignature = signature(post);
       if (this.signatures.get(element) === currentSignature) return;
@@ -154,8 +179,37 @@ export class PostFilter {
       else if (this.settings.calibrationMode) this.addShownFeedback(post, decisionId);
     } catch (error) {
       // Fail-open: filtre hatası hiçbir içeriği görünmez yapmamalı.
+      this.clearPresentation(element);
       element.setAttribute(STATE_ATTR, 'error');
       console.warn('[Reddit Karamsarlık Filtresi] Post değerlendirilemedi:', error);
+    }
+  }
+
+  processComment(element) {
+    try {
+      const comment = extractComment(element);
+      if (!comment.subreddit || !this.settings.subreddits.includes(comment.subreddit) || !comment.body) {
+        this.clearPresentation(element);
+        this.signatures.delete(element);
+        element.setAttribute(STATE_ATTR, 'shown');
+        return;
+      }
+
+      const currentSignature = signature(comment);
+      if (this.signatures.get(element) === currentSignature) return;
+      this.signatures.set(element, currentSignature);
+      this.clearPresentation(element);
+
+      const result = scorePost(comment, this.settings);
+      const decisionId = this.emitDecision(comment, result);
+      element.setAttribute(STATE_ATTR, result.hidden ? 'hidden' : 'shown');
+      if (result.hidden) this.hideComment(comment, result, decisionId);
+      else if (this.settings.calibrationMode) this.addShownCommentFeedback(comment, decisionId);
+    } catch (error) {
+      // Fail-open: yorum filtresi hatası yorum veya alt yanıtlarını görünmez yapmamalı.
+      this.clearPresentation(element);
+      element.setAttribute(STATE_ATTR, 'error');
+      console.warn('[Reddit Karamsarlık Filtresi] Yorum değerlendirilemedi:', error);
     }
   }
 
@@ -163,6 +217,7 @@ export class PostFilter {
     if (!this.onDecision) return null;
     try {
       return this.onDecision({
+        kind: post.kind ?? 'post',
         id: post.id,
         subreddit: post.subreddit,
         title: post.title,
@@ -187,7 +242,8 @@ export class PostFilter {
   clearPresentation(element) {
     const presentation = this.presentations.get(element);
     if (!presentation) return;
-    if (presentation.kind === 'hidden') element.style.display = presentation.previousDisplay;
+    if (presentation.kind === 'hidden-post') element.style.display = presentation.previousDisplay;
+    for (const item of presentation.hiddenNodes ?? []) item.node.style.display = item.previousDisplay;
     presentation.bar.remove();
     this.presentations.delete(element);
   }
@@ -231,7 +287,74 @@ export class PostFilter {
       bar.append(incorrect);
     }
     element.parentNode?.insertBefore(bar, element);
-    this.presentations.set(element, { kind: 'hidden', bar, previousDisplay });
+    this.presentations.set(element, { kind: 'hidden-post', bar, previousDisplay });
+  }
+
+  hideComment(comment, result, decisionId) {
+    const { element, contentElement } = comment;
+    if (!contentElement?.parentNode) return;
+    const nodes = [...new Set([contentElement, ...comment.actionElements].filter(Boolean))];
+    const hiddenNodes = nodes.map((node) => ({ node, previousDisplay: node.style.display }));
+    for (const { node } of hiddenNodes) node.style.display = 'none';
+
+    const bar = this.doc.createElement('div');
+    bar.className = 'rdf-bar rdf-bar--comment';
+    bar.setAttribute('data-rdf-comment-for', comment.id || 'unknown');
+
+    const reason = this.doc.createElement('span');
+    reason.className = 'rdf-bar__reason';
+    const primaryReason = result.reasons[0]?.reason ?? 'eşik üstü içerik';
+    reason.textContent = this.settings.debug
+      ? `Karamsar yorum gizlendi · ${result.score} puan · ${primaryReason} · “${result.clause}”`
+      : `Karamsar yorum gizlendi · ${primaryReason}`;
+
+    const restore = () => {
+      for (const item of hiddenNodes) item.node.style.display = item.previousDisplay;
+      element.setAttribute(STATE_ATTR, 'overridden');
+      bar.remove();
+      this.presentations.delete(element);
+    };
+    const show = this.doc.createElement('button');
+    show.type = 'button';
+    show.textContent = 'Göster';
+    show.addEventListener('click', restore, { once: true });
+    bar.append(reason, show);
+
+    if (decisionId && this.onFeedback) {
+      const incorrect = this.doc.createElement('button');
+      incorrect.type = 'button';
+      incorrect.textContent = 'Yanlış gizlendi';
+      incorrect.addEventListener('click', () => {
+        if (!this.emitFeedback(decisionId, 'false-positive')) return;
+        restore();
+      }, { once: true });
+      bar.append(incorrect);
+    }
+
+    contentElement.parentNode.insertBefore(bar, contentElement);
+    this.presentations.set(element, { kind: 'hidden-comment', bar, hiddenNodes });
+  }
+
+  addShownCommentFeedback(comment, decisionId) {
+    if (!decisionId || !comment.contentElement?.parentNode) return;
+    const review = this.doc.createElement('div');
+    review.className = 'rdf-bar rdf-bar--review rdf-bar--comment-review';
+    review.setAttribute('data-rdf-comment-review-for', comment.id || decisionId);
+
+    const label = this.doc.createElement('span');
+    label.className = 'rdf-bar__reason';
+    label.textContent = 'Kalibrasyon: Bu yorum görünür bırakıldı.';
+    const missed = this.doc.createElement('button');
+    missed.type = 'button';
+    missed.textContent = 'Gizlenmeliydi';
+    missed.addEventListener('click', () => {
+      if (!this.emitFeedback(decisionId, 'false-negative')) return;
+      missed.disabled = true;
+      missed.textContent = 'Kaydedildi';
+    }, { once: true });
+    review.append(label, missed);
+    comment.contentElement.parentNode.insertBefore(review, comment.contentElement.nextSibling);
+    this.presentations.set(comment.element, { kind: 'review-comment', bar: review, hiddenNodes: [] });
   }
 
   addShownFeedback(post, decisionId) {

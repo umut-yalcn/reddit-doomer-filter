@@ -15,7 +15,7 @@ const ADVERBS = new Set([
 ]);
 
 function isDomainToken(token) {
-  return /^(?:yazilim\w*|ceng\w*|bilgisayar\w*|muhendis\w*|sektor\w*|developer\w*|coder\w*|junior\w*|mid\w*|senior\w*|programlama\w*|bilisim\w*|bolum\w*)$/.test(token);
+  return /^(?:yazilim\w*|ceng\w*|bilgisayar\w*|muhendis\w*|sektor\w*|developer\w*|coder\w*|junior\w*|mid\w*|senior\w*|programlama\w*|kodlama\w*|bilisim\w*|bolum\w*)$/.test(token);
 }
 
 function isTerminalToken(token) {
@@ -115,6 +115,13 @@ function scoreClausePositive(originalClause) {
   }
 
   const hasAi = /\b(?:ai|yz|yapay\s+zeka\w*)\b/.test(text);
+  const asksCodeEraMeaning = /\b(?:derken|demekle)\b.{0,24}\b(?:anlamadim|anlayamadim|ne\s+demek)\b/.test(text);
+  if (
+    hasAi && !asksCodeEraMeaning &&
+    /\bkod\w*\s+yazma\w*(?:\s+(?:da|devri|artik|tamamen)){0,2}\s+bitti\w*\b/.test(text)
+  ) {
+    addSignal(signals, 'terminal', 5, 'AI sonrası kod yazmanın bittiği hükmü');
+  }
   const aiPossessiveObject = '(?:elim\\w*|elind\\w*|ellerin\\w*)';
   const aiDisplacementNegated = new RegExp(
     `\\b(?:is\\w*\\s+)?${aiPossessiveObject}\\s+(?:alm(?:iyor|ayacak|adi|az)|alam(?:iyor|ayacak|adi|az))|\\byerin\\w*\\s+(?:alm(?:iyor|ayacak|adi|az)|alam(?:iyor|ayacak|adi|az))\\b`,

@@ -56,7 +56,7 @@ function makeDecisionFingerprint(title, body, result) {
   return `${hashText(normalized)}-${normalized.length}`;
 }
 
-/** Tarayıcıda tutulan, boyutu sınırlı ve aynı postu tekilleştiren karar günlüğü. */
+/** Tarayıcıda tutulan, boyutu sınırlı ve aynı içeriği tekilleştiren karar günlüğü. */
 export class DecisionJournal {
   constructor({
     read = () => [],
@@ -119,15 +119,18 @@ export class DecisionJournal {
   }
 
   record(post, result) {
+    const kind = post?.kind === 'comment' ? 'comment' : 'post';
     const subreddit = limit(post?.subreddit, 80).toLowerCase();
     const redditId = limit(post?.id, 160);
     const rawTitle = String(post?.title ?? '');
     const rawBody = String(post?.body ?? '');
     const title = limit(rawTitle, 500);
     const body = limit(rawBody, 5000);
-    const identity = redditId
+    const baseIdentity = redditId
       ? `${subreddit}|id:${redditId}`
       : `${subreddit}|text:${rawTitle}|${rawBody}`;
+    // Mevcut post günlük kimliklerini koru; yalnız yorumları ayrı ad alanına al.
+    const identity = kind === 'comment' ? `comment|${baseIdentity}` : baseIdentity;
     const normalizedIdentity = normalizeTurkish(identity);
     const fingerprint = `${hashText(normalizedIdentity)}-${normalizedIdentity.length}`;
     const timestamp = this.now().toISOString();
@@ -141,6 +144,7 @@ export class DecisionJournal {
 
     const entry = {
       id: fingerprint,
+      kind,
       redditId: redditId || null,
       subreddit,
       title,

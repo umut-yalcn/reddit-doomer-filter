@@ -120,6 +120,25 @@ test('SPA benzeri eleman yeniden kullanımında subreddit ve başlık değişimi
   filter.stop();
 });
 
+test('gizlenmiş post hedef dışı subreddit için yeniden kullanılırsa geri açılır', async () => {
+  const dom = new JSDOM(`<!doctype html><html><head></head><body><main>
+    <shreddit-post id="t3_reused_outside" post-title="Yazılım bitti" subreddit-prefixed-name="r/CodingTR"></shreddit-post>
+  </main></body></html>`, {
+    url: 'https://www.reddit.com/',
+    pretendToBeVisual: true,
+  });
+  const filter = new PostFilter({ doc: dom.window.document }).start();
+  const post = dom.window.document.querySelector('shreddit-post');
+  assert.equal(post.style.display, 'none');
+  post.setAttribute('subreddit-prefixed-name', 'r/programming');
+
+  await new Promise((resolve) => dom.window.setTimeout(resolve, 120));
+  assert.equal(post.style.display, '');
+  assert.equal(dom.window.document.querySelectorAll('.rdf-bar').length, 0);
+  assert.equal(post.getAttribute('data-rdf-state'), 'shown');
+  filter.stop();
+});
+
 test('mevcut gövde metni sonradan değiştiğinde postu yeniden değerlendirir', async () => {
   const dom = new JSDOM(`<!doctype html><html><head></head><body><main>
     <shreddit-post id="t3_text" post-title="Kariyer konuşması" subreddit-prefixed-name="r/EngineeringTR">

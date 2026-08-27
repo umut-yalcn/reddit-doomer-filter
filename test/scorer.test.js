@@ -143,3 +143,19 @@ test('debug sonucu en güçlü cümle ve gerekçeleri döndürür', () => {
   assert.match(result.clause, /Yazılım sektörü bitti/);
   assert.ok(result.reasons.length > 0);
 });
+
+test('yorumlarda görülen kodlama ve AI-kod devri bitiş hükümlerini yakalar', () => {
+  const samples = [
+    'Kodlama bitti, artık dilden bağımsızız.',
+    'AI ile beraber kod yazma da bitti zaten.',
+    'AI’ın çıkmasıyla kod yazma devri bitti anlamında.',
+  ];
+  for (const body of samples) {
+    assert.equal(scorePost({ title: '', body }).hidden, true, body);
+  }
+});
+
+test('kod yazma devri bitti ifadesini anlamaya çalışan açıklama sorusunu gizlemez', () => {
+  const result = scorePost({ title: '', body: 'AI kod yazma devri bitti derken anlamadım ben.' });
+  assert.equal(result.hidden, false);
+});

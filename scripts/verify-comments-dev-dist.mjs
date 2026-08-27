@@ -1,0 +1,27 @@
+import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
+import { readFile } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
+const packageJson = JSON.parse(await readFile(join(ROOT, 'package.json'), 'utf8'));
+const production = await readFile(join(ROOT, 'dist', 'reddit-doom-filter.user.js'), 'utf8');
+const developmentPath = join(ROOT, 'dist', 'reddit-doom-filter.comments-dev.user.js');
+const development = await readFile(developmentPath, 'utf8');
+const metadata = Object.fromEntries(
+  [...development.matchAll(/^\/\/ @(\w+)\s+(.+)$/gm)].map((match) => [match[1], match[2].trim()]),
+);
+
+assert.equal(metadata.name, 'Reddit Karamsarlık Filtresi Yorum DEV');
+assert.equal(metadata.namespace, `${String(packageJson.homepage).replace(/\/$/, '')}/comments-dev`);
+assert.equal(metadata.version, `${packageJson.version}-comments-dev`);
+assert.doesNotMatch(development, /^\/\/ @updateURL/m);
+assert.doesNotMatch(development, /^\/\/ @downloadURL/m);
+assert.match(development, /shreddit-comment/);
+assert.match(development, /Yorum filtresini kapat/);
+assert.notEqual(development, production);
+
+execFileSync(process.execPath, [join(ROOT, 'build-comments-dev.mjs')], { cwd: ROOT, stdio: 'pipe' });
+assert.equal(await readFile(developmentPath, 'utf8'), development);
+console.log('Yorum DEV dist doğrulandı · ayrı namespace · deterministik · otomatik güncelleme kapalı');

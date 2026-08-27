@@ -13,7 +13,7 @@ const banner = `// ==UserScript==
 // @name         Reddit Karamsarlık Filtresi
 // @namespace    ${repositoryUrl}
 // @version      ${packageJson.version}
-// @description  Seçili Türk subredditlerinde karamsar kariyer postlarını yerel olarak gizler.
+// @description  Seçili Türk subredditlerinde karamsar kariyer postlarını ve yorumlarını yerel olarak gizler.
 // @homepageURL  ${repositoryUrl}
 // @supportURL   ${packageJson.bugs.url}
 // @updateURL    ${distributionUrl}
@@ -40,7 +40,7 @@ const modules = [
 
 function stripModuleSyntax(source, name) {
   return source
-    .replace(/^import\s+.*?;\s*$/gm, '')
+    .replace(/^import\s+[\s\S]*?;\s*$/gm, '')
     .replace(/^export\s+(?=(?:const|let|var|function|class)\b)/gm, '')
     .replace(/^export\s*\{[^}]*\};?\s*$/gm, '')
     .replace(/^/gm, '  ')
