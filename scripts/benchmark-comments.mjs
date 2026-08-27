@@ -1,8 +1,10 @@
 import { performance } from 'node:perf_hooks';
 import { JSDOM } from 'jsdom';
 import { PostFilter } from '../core/filter.js';
+import { matchPersonalRule } from '../core/overrides.js';
 
 const count = Number.parseInt(process.argv[2] ?? '1000', 10);
+const personalRuleCount = process.argv[3] === 'with-rules' ? 100 : 0;
 if (!Number.isFinite(count) || count < 1) throw new Error('Yorum sayısı pozitif bir tam sayı olmalı.');
 
 const markup = Array.from({ length: count }, (_, index) => `
@@ -14,15 +16,28 @@ const markup = Array.from({ length: count }, (_, index) => `
 const dom = new JSDOM(`<!doctype html><html><head></head><body>${markup}</body></html>`, {
   url: 'https://www.reddit.com/r/CodingTR/comments/post/example/',
 });
+const personalRules = Array.from({ length: personalRuleCount }, (_, index) => ({
+  id: `benchmark-${index}`,
+  action: index % 2 === 0 ? 'show' : 'hide',
+  scope: 'comment',
+  phrase: `eşleşmeyen performans kuralı ${index}`,
+  normalizedPhrase: `eslesmeyen performans kurali ${index}`,
+}));
 
 const startedAt = performance.now();
-new PostFilter({ doc: dom.window.document }).processTree(dom.window.document);
+new PostFilter({
+  doc: dom.window.document,
+  matchPersonalRule: personalRuleCount > 0
+    ? (content) => matchPersonalRule(content, personalRules)
+    : null,
+}).processTree(dom.window.document);
 const elapsedMs = performance.now() - startedAt;
 const hidden = dom.window.document.querySelectorAll('.rdf-bar--comment').length;
 
 console.log(JSON.stringify({
   comments: count,
   hidden,
+  personalRules: personalRuleCount,
   elapsedMs: Number(elapsedMs.toFixed(1)),
   averageMs: Number((elapsedMs / count).toFixed(3)),
 }));

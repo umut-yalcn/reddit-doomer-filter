@@ -69,6 +69,244 @@
   }
 
 
+  // ---- core/overrides.js ----
+
+  const MAX_PERSONAL_RULES = 100;
+  const PERSONAL_RULE_SCHEMA_VERSION = 2;
+  const MAX_PHRASE_LENGTH = 500;
+  const VALID_ACTIONS = new Set(['show', 'hide']);
+  const VALID_SCOPES = new Set(['post', 'comment']);
+
+  function hashRuleText(value) {
+    let hash = 0x811c9dc5;
+    for (let index = 0; index < value.length; index += 1) {
+      hash ^= value.charCodeAt(index);
+      hash = Math.imul(hash, 0x01000193);
+    }
+    return (hash >>> 0).toString(36);
+  }
+
+  function normalizeScope(value) {
+    return VALID_SCOPES.has(value) ? value : 'post';
+  }
+
+  function normalizeStoredRule(rule) {
+    if (!rule || typeof rule !== 'object' || !VALID_ACTIONS.has(rule.action) || typeof rule.phrase !== 'string') {
+      return null;
+    }
+    const phrase = String(rule.phrase).trim().slice(0, MAX_PHRASE_LENGTH);
+    const normalizedPhrase = normalizeTurkish(phrase);
+    if (normalizedPhrase.length < 4) return null;
+    if (rule.scope !== undefined && !VALID_SCOPES.has(rule.scope)) return null;
+    const scope = rule.scope ?? 'post';
+    return {
+      id: String(rule.id || `personal-${hashRuleText(`${rule.action}|${scope}|${phrase}`)}`).slice(0, 160),
+      action: rule.action,
+      scope,
+      phrase,
+      normalizedPhrase,
+      createdAt: typeof rule.createdAt === 'string' ? rule.createdAt : new Date(0).toISOString(),
+    };
+  }
+
+  function parseRules(raw) {
+    try {
+      const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      if (!Array.isArray(parsed)) return [];
+      return parsed.map(normalizeStoredRule).filter(Boolean);
+    } catch {
+      return [];
+    }
+  }
+
+  function fieldContains(normalizedField, normalizedPhrase) {
+    if (!normalizedField || !normalizedPhrase) return false;
+    return ` ${normalizedField} `.includes(` ${normalizedPhrase} `);
+  }
+
+  function ruleKey(rule) {
+    return `${rule.scope}|${rule.normalizedPhrase}`;
+  }
+
+  function validatePersonalRulePhrase(phrase) {
+    const cleanPhrase = String(phrase ?? '').trim();
+    const normalizedPhrase = normalizeTurkish(cleanPhrase);
+    if (normalizedPhrase.length < 4) {
+      return { valid: false, reason: 'İfade en az 4 karakter olmalı.' };
+    }
+    if (cleanPhrase.length > MAX_PHRASE_LENGTH) {
+      return { valid: false, reason: `İfade en fazla ${MAX_PHRASE_LENGTH} karakter olmalı.` };
+    }
+    return { valid: true, normalizedPhrase };
+  }
+
+  /** Başlık ve gövdeyi ayrı tutar; yalnız aynı içerik kapsamındaki en özel kuralı döndürür. */
+  function matchPersonalRule(content, rules) {
+    const scope = normalizeScope(content?.kind);
+    const title = normalizeTurkish(content?.title);
+    const body = normalizeTurkish(content?.body);
+    let winner = null;
+
+    for (let index = 0; index < (Array.isArray(rules) ? rules.length : 0); index += 1) {
+      const rule = rules[index];
+      if (!rule || !VALID_ACTIONS.has(rule.action) || normalizeScope(rule.scope) !== scope) continue;
+      const normalizedPhrase = typeof rule.normalizedPhrase === 'string' && rule.normalizedPhrase
+        ? rule.normalizedPhrase
+        : normalizeTurkish(rule.phrase);
+      if (!fieldContains(title, normalizedPhrase) && !fieldContains(body, normalizedPhrase)) continue;
+
+      const specificity = normalizedPhrase.length;
+      if (!winner || specificity > winner.specificity || (specificity === winner.specificity && index > winner.index)) {
+        winner = { rule, specificity, index, normalizedPhrase };
+      }
+    }
+
+    if (!winner) return null;
+    return { ...winner.rule, scope, normalizedPhrase: winner.normalizedPhrase };
+  }
+
+  /** Boyutu sınırlı, yalnız tarayıcıda tutulan post/yorum göster-gizle kuralları. */
+  class PersonalRuleStore {
+    constructor({
+      read = () => [],
+      write = () => {},
+      now = () => new Date(),
+      maxRules = MAX_PERSONAL_RULES,
+      onError = () => {},
+    } = {}) {
+      this.read = read;
+      this.write = write;
+      this.now = now;
+      this.maxRules = Math.max(1, Number(maxRules) || MAX_PERSONAL_RULES);
+      this.onError = typeof onError === 'function' ? onError : () => {};
+      this.rules = null;
+    }
+
+    load() {
+      if (this.rules) return this.rules;
+      try {
+        this.rules = parseRules(this.read()).slice(-this.maxRules);
+      } catch (error) {
+        this.rules = [];
+        this.onError(error);
+      }
+      return this.rules;
+    }
+
+    list() {
+      return this.load().map((rule) => ({ ...rule }));
+    }
+
+    commit(rules) {
+      const previous = this.rules;
+      const next = rules.slice(-this.maxRules);
+      try {
+        this.write(next);
+        this.rules = next;
+      } catch (error) {
+        this.rules = previous;
+        this.onError(error);
+        throw error;
+      }
+    }
+
+    add(action, phrase, scope = 'post') {
+      if (!VALID_ACTIONS.has(action)) throw new TypeError('Kural eylemi show veya hide olmalı.');
+      if (!VALID_SCOPES.has(scope)) throw new TypeError('Kural kapsamı post veya comment olmalı.');
+      const validation = validatePersonalRulePhrase(phrase);
+      if (!validation.valid) throw new RangeError(validation.reason);
+
+      const cleanPhrase = String(phrase).trim();
+      const createdAt = this.now().toISOString();
+      const key = `${scope}|${validation.normalizedPhrase}`;
+      const rules = this.load().filter((rule) => ruleKey(rule) !== key);
+      const rule = {
+        id: `personal-${hashRuleText(`${action}|${scope}|${validation.normalizedPhrase}|${createdAt}`)}`,
+        action,
+        scope,
+        phrase: cleanPhrase,
+        normalizedPhrase: validation.normalizedPhrase,
+        createdAt,
+      };
+      rules.push(rule);
+      this.commit(rules);
+      return { ...rule };
+    }
+
+    remove(id) {
+      const rules = this.load();
+      const next = rules.filter((rule) => rule.id !== id);
+      if (next.length === rules.length) return false;
+      this.commit(next);
+      return true;
+    }
+
+    clear() {
+      const count = this.load().length;
+      if (count > 0) this.commit([]);
+      return count;
+    }
+
+    match(content) {
+      return matchPersonalRule(content, this.load());
+    }
+
+    importPayload(raw) {
+      let payload;
+      try {
+        payload = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      } catch {
+        throw new TypeError('İçe aktarma JSON olarak okunamadı.');
+      }
+      const schemaVersion = Array.isArray(payload) ? 1 : Number(payload?.schemaVersion ?? 1);
+      const sourceRules = Array.isArray(payload) ? payload : payload?.rules;
+      if (!Number.isFinite(schemaVersion) || schemaVersion < 1 || schemaVersion > PERSONAL_RULE_SCHEMA_VERSION) {
+        throw new RangeError('Desteklenmeyen kişisel kural şeması.');
+      }
+      if (!Array.isArray(sourceRules)) throw new TypeError('İçe aktarma içinde geçerli bir rules dizisi yok.');
+      if (sourceRules.length > this.maxRules * 10) throw new RangeError('İçe aktarma dosyasında aşırı sayıda kural var.');
+
+      const imported = sourceRules.map((source, index) => {
+        if (!source || typeof source !== 'object' || !VALID_ACTIONS.has(source.action)) {
+          throw new TypeError(`${index + 1}. kişisel kural geçersiz.`);
+        }
+        const scope = source.scope === undefined ? 'post' : source.scope;
+        if (!VALID_SCOPES.has(scope)) throw new TypeError(`${index + 1}. kişisel kural kapsamı geçersiz.`);
+        const validation = validatePersonalRulePhrase(source.phrase);
+        if (!validation.valid) throw new RangeError(`${index + 1}. kişisel kural geçersiz: ${validation.reason}`);
+        const phrase = String(source.phrase).trim();
+        const createdAt = typeof source.createdAt === 'string' ? source.createdAt : this.now().toISOString();
+        return {
+          id: `personal-${hashRuleText(`${source.action}|${scope}|${validation.normalizedPhrase}|${createdAt}|${index}`)}`,
+          action: source.action,
+          scope,
+          phrase,
+          normalizedPhrase: validation.normalizedPhrase,
+          createdAt,
+        };
+      });
+
+      const importedKeys = new Set(imported.map(ruleKey));
+      const merged = this.load().filter((rule) => !importedKeys.has(ruleKey(rule)));
+      merged.push(...imported);
+      this.commit(merged);
+      return { imported: imported.length, total: this.list().length };
+    }
+
+    exportPayload() {
+      const rules = this.list();
+      return {
+        schemaVersion: PERSONAL_RULE_SCHEMA_VERSION,
+        exportedAt: this.now().toISOString(),
+        ruleCount: rules.length,
+        rules,
+      };
+    }
+  }
+
+  const overridesTesting = { fieldContains, hashRuleText, normalizeStoredRule, parseRules, ruleKey };
+
+
   // ---- core/journal.js ----
 
   const DEFAULT_MAX_ENTRIES = 500;
@@ -764,6 +1002,7 @@
     );
 
     return {
+      kind: 'post',
       id: isNew
         ? element.getAttribute('post-id') || element.getAttribute('id') || ''
         : element.getAttribute('data-fullname') || element.getAttribute('id') || '',
@@ -816,6 +1055,7 @@
   const DEFAULT_SETTINGS = {
     enabled: true,
     filterComments: true,
+    personalOverridesEnabled: true,
     threshold: 4,
     protectQuestions: false,
     debug: false,
@@ -857,7 +1097,14 @@
   }
 
   class PostFilter {
-    constructor({ doc = document, settings = {}, onDecision = null, onFeedback = null } = {}) {
+    constructor({
+      doc = document,
+      settings = {},
+      onDecision = null,
+      onFeedback = null,
+      matchPersonalRule = null,
+      onCreatePersonalRule = null,
+    } = {}) {
       this.doc = doc;
       this.settings = { ...DEFAULT_SETTINGS, ...settings };
       this.settings.subreddits = [...(settings.subreddits ?? DEFAULT_SETTINGS.subreddits)].map((s) => s.toLowerCase());
@@ -868,6 +1115,8 @@
       this.presentations = new WeakMap();
       this.onDecision = typeof onDecision === 'function' ? onDecision : null;
       this.onFeedback = typeof onFeedback === 'function' ? onFeedback : null;
+      this.matchPersonalRule = typeof matchPersonalRule === 'function' ? matchPersonalRule : null;
+      this.onCreatePersonalRule = typeof onCreatePersonalRule === 'function' ? onCreatePersonalRule : null;
     }
 
     start() {
@@ -973,11 +1222,13 @@
         this.signatures.set(element, currentSignature);
         this.clearPresentation(element);
 
-        const result = scorePost(post, this.settings);
+        const result = this.applyPersonalRule(post, scorePost(post, this.settings));
         const decisionId = this.emitDecision(post, result);
         element.setAttribute(STATE_ATTR, result.hidden ? 'hidden' : 'shown');
         if (result.hidden) this.hidePost(post, result, decisionId);
-        else if (this.settings.calibrationMode) this.addShownFeedback(post, decisionId);
+        else if (this.settings.calibrationMode && result.personalRule?.action !== 'show') {
+          this.addShownFeedback(post, decisionId);
+        }
       } catch (error) {
         // Fail-open: filtre hatası hiçbir içeriği görünmez yapmamalı.
         this.clearPresentation(element);
@@ -1001,11 +1252,13 @@
         this.signatures.set(element, currentSignature);
         this.clearPresentation(element);
 
-        const result = scorePost(comment, this.settings);
+        const result = this.applyPersonalRule(comment, scorePost(comment, this.settings));
         const decisionId = this.emitDecision(comment, result);
         element.setAttribute(STATE_ATTR, result.hidden ? 'hidden' : 'shown');
         if (result.hidden) this.hideComment(comment, result, decisionId);
-        else if (this.settings.calibrationMode) this.addShownCommentFeedback(comment, decisionId);
+        else if (this.settings.calibrationMode && result.personalRule?.action !== 'show') {
+          this.addShownCommentFeedback(comment, decisionId);
+        }
       } catch (error) {
         // Fail-open: yorum filtresi hatası yorum veya alt yanıtlarını görünmez yapmamalı.
         this.clearPresentation(element);
@@ -1027,6 +1280,64 @@
       } catch (error) {
         console.warn('[Reddit Karamsarlık Filtresi] Karar günlüğe yazılamadı:', error);
         return null;
+      }
+    }
+
+    applyPersonalRule(content, result) {
+      if (!this.matchPersonalRule) return result;
+      let rule = null;
+      try {
+        rule = this.matchPersonalRule(content);
+      } catch (error) {
+        console.warn('[Reddit Karamsarlık Filtresi] Kişisel kurallar okunamadı:', error);
+        return result;
+      }
+      const expectedScope = content.kind === 'comment' ? 'comment' : 'post';
+      if (
+        !rule
+        || !['show', 'hide'].includes(rule.action)
+        || (rule.scope !== undefined && rule.scope !== expectedScope)
+      ) return result;
+
+      const hidden = rule.action === 'hide';
+      const reason = hidden ? 'kişisel daima gizle kuralı' : 'kişisel daima göster kuralı';
+      return {
+        ...result,
+        hidden,
+        score: hidden ? Math.max(result.score, result.threshold) : result.score,
+        source: 'personal',
+        clause: rule.phrase || result.clause,
+        reasons: [{ category: 'personal-rule', score: 0, reason }, ...result.reasons],
+        personalRule: {
+          id: String(rule.id ?? ''),
+          action: rule.action,
+          scope: content.kind === 'comment' ? 'comment' : 'post',
+          phrase: String(rule.phrase ?? ''),
+        },
+      };
+    }
+
+    emitPersonalRule(action, content, result) {
+      if (!this.onCreatePersonalRule) return false;
+      const scope = content.kind === 'comment' ? 'comment' : 'post';
+      const suggestedPhrase = String(result?.clause || content?.title || content?.body || '').trim().slice(0, 500);
+      try {
+        return this.onCreatePersonalRule({
+          action,
+          scope,
+          suggestedPhrase,
+          content: {
+            kind: scope,
+            id: content?.id,
+            subreddit: content?.subreddit,
+            title: content?.title,
+            body: content?.body,
+          },
+          result,
+        }) !== false;
+      } catch (error) {
+        console.warn('[Reddit Karamsarlık Filtresi] Kişisel kural kaydedilemedi:', error);
+        return false;
       }
     }
 
@@ -1068,22 +1379,32 @@
       const show = this.doc.createElement('button');
       show.type = 'button';
       show.textContent = 'Göster';
-      show.addEventListener('click', () => {
+      const restore = () => {
         element.style.display = previousDisplay;
         element.setAttribute(STATE_ATTR, 'overridden');
         bar.remove();
-      }, { once: true });
+        this.presentations.delete(element);
+      };
+      show.addEventListener('click', restore, { once: true });
 
       bar.append(reason, show);
+      if (this.onCreatePersonalRule) {
+        const alwaysShow = this.doc.createElement('button');
+        alwaysShow.type = 'button';
+        alwaysShow.textContent = 'Daima göster';
+        alwaysShow.addEventListener('click', () => {
+          if (!this.emitPersonalRule('show', post, result)) return;
+          restore();
+        }, { once: true });
+        bar.append(alwaysShow);
+      }
       if (decisionId && this.onFeedback) {
         const incorrect = this.doc.createElement('button');
         incorrect.type = 'button';
         incorrect.textContent = 'Yanlış gizlendi';
         incorrect.addEventListener('click', () => {
           if (!this.emitFeedback(decisionId, 'false-positive')) return;
-          element.style.display = previousDisplay;
-          element.setAttribute(STATE_ATTR, 'overridden');
-          bar.remove();
+          restore();
         }, { once: true });
         bar.append(incorrect);
       }
@@ -1121,6 +1442,17 @@
       show.addEventListener('click', restore, { once: true });
       bar.append(reason, show);
 
+      if (this.onCreatePersonalRule) {
+        const alwaysShow = this.doc.createElement('button');
+        alwaysShow.type = 'button';
+        alwaysShow.textContent = 'Benzer yorumları daima göster';
+        alwaysShow.addEventListener('click', () => {
+          if (!this.emitPersonalRule('show', comment, result)) return;
+          restore();
+        }, { once: true });
+        bar.append(alwaysShow);
+      }
+
       if (decisionId && this.onFeedback) {
         const incorrect = this.doc.createElement('button');
         incorrect.type = 'button';
@@ -1154,6 +1486,17 @@
         missed.textContent = 'Kaydedildi';
       }, { once: true });
       review.append(label, missed);
+      if (this.onCreatePersonalRule) {
+        const alwaysHide = this.doc.createElement('button');
+        alwaysHide.type = 'button';
+        alwaysHide.textContent = 'Benzer yorumları daima gizle';
+        alwaysHide.addEventListener('click', () => {
+          if (!this.emitPersonalRule('hide', comment, { clause: comment.body })) return;
+          alwaysHide.disabled = true;
+          alwaysHide.textContent = 'Kaydedildi';
+        }, { once: true });
+        review.append(alwaysHide);
+      }
       comment.contentElement.parentNode.insertBefore(review, comment.contentElement.nextSibling);
       this.presentations.set(comment.element, { kind: 'review-comment', bar: review, hiddenNodes: [] });
     }
@@ -1178,6 +1521,17 @@
       }, { once: true });
 
       review.append(label, missed);
+      if (this.onCreatePersonalRule) {
+        const alwaysHide = this.doc.createElement('button');
+        alwaysHide.type = 'button';
+        alwaysHide.textContent = 'Daima gizle';
+        alwaysHide.addEventListener('click', () => {
+          if (!this.emitPersonalRule('hide', post, { clause: post.title })) return;
+          alwaysHide.disabled = true;
+          alwaysHide.textContent = 'Kaydedildi';
+        }, { once: true });
+        review.append(alwaysHide);
+      }
       post.element.parentNode.insertBefore(review, post.element.nextSibling);
       this.presentations.set(post.element, { kind: 'review', bar: review, previousDisplay: post.element.style.display });
     }
@@ -1188,7 +1542,8 @@
 
   const SETTINGS_KEY = 'rdf_settings_v1';
   const JOURNAL_KEY = 'rdf_journal_v1';
-  const SETTINGS_SCHEMA_VERSION = 2;
+  const PERSONAL_RULES_KEY = 'rdf_personal_rules_v1';
+  const SETTINGS_SCHEMA_VERSION = 3;
   let settingsMigrated = false;
 
   function loadSettings() {
@@ -1205,11 +1560,12 @@
       merged.subreddits = Array.isArray(merged.subreddits)
         ? [...new Set(merged.subreddits.map((item) => String(item).trim().toLowerCase()).filter(Boolean))]
         : [...DEFAULT_SETTINGS.subreddits];
-      if (storedSchemaVersion < SETTINGS_SCHEMA_VERSION && !merged.subreddits.includes('trgamedeveloper')) {
+      if (storedSchemaVersion < 2 && !merged.subreddits.includes('trgamedeveloper')) {
         merged.subreddits.push('trgamedeveloper');
       }
       merged.settingsSchemaVersion = SETTINGS_SCHEMA_VERSION;
       merged.filterComments = merged.filterComments !== false;
+      merged.personalOverridesEnabled = merged.personalOverridesEnabled !== false;
       settingsMigrated = storedSchemaVersion < SETTINGS_SCHEMA_VERSION;
       return merged;
     } catch {
@@ -1231,6 +1587,25 @@
       console.warn('[Reddit Karamsarlık Filtresi] Ayar geçişi kaydedilemedi:', error);
     }
   }
+
+  function readPersonalRules() {
+    return typeof GM_getValue === 'function'
+      ? GM_getValue(PERSONAL_RULES_KEY, '[]')
+      : localStorage.getItem(PERSONAL_RULES_KEY) || '[]';
+  }
+
+  function writePersonalRules(rules) {
+    const raw = JSON.stringify(rules);
+    if (typeof GM_setValue === 'function') GM_setValue(PERSONAL_RULES_KEY, raw);
+    else localStorage.setItem(PERSONAL_RULES_KEY, raw);
+  }
+
+  const personalRules = new PersonalRuleStore({
+    read: readPersonalRules,
+    write: writePersonalRules,
+    maxRules: 100,
+    onError: (error) => console.warn('[Reddit Karamsarlık Filtresi] Kişisel kural depolama hatası:', error),
+  });
 
   function readJournal() {
     return typeof GM_getValue === 'function'
@@ -1262,6 +1637,30 @@
     settings,
     onDecision: (post, result) => journal.record(post, result),
     onFeedback: (decisionId, feedback) => journal.mark(decisionId, feedback),
+    matchPersonalRule: settings.personalOverridesEnabled
+      ? (content) => personalRules.match(content)
+      : null,
+    onCreatePersonalRule: settings.personalOverridesEnabled
+      ? ({ action, scope, suggestedPhrase }) => {
+          const contentLabel = scope === 'comment' ? 'yorumları' : 'postları';
+          const instruction = action === 'show'
+            ? `Bu ifadeyi içeren ${contentLabel} daima göster:`
+            : `Bu ifadeyi içeren ${contentLabel} daima gizle:`;
+          const phrase = globalThis.prompt?.(
+            `${instruction}\n\nİfadeyi daraltabilir veya düzeltebilirsin. Çok genel ifadeler daha fazla içeriği etkiler.`,
+            suggestedPhrase,
+          );
+          if (phrase === null || phrase === undefined) return false;
+          try {
+            personalRules.add(action, phrase, scope);
+            globalThis.alert?.(`Kişisel ${scope === 'comment' ? 'yorum' : 'post'} kuralı yalnız bu tarayıcıya kaydedildi.`);
+            return true;
+          } catch (error) {
+            globalThis.alert?.(`Kural kaydedilemedi: ${error.message}`);
+            return false;
+          }
+        }
+      : null,
   }).start();
 
   function registerMenu(label, action) {
@@ -1296,6 +1695,94 @@
     settings.filterComments = !settings.filterComments;
     saveSettings(settings);
     location.reload();
+  });
+
+  registerMenu(
+    settings.personalOverridesEnabled ? 'Kişisel kuralları kapat' : 'Kişisel kuralları aç',
+    () => {
+      settings.personalOverridesEnabled = !settings.personalOverridesEnabled;
+      saveSettings(settings);
+      location.reload();
+    },
+  );
+
+  registerMenu(`Kişisel kuralları yönet (${personalRules.list().length})`, () => {
+    const rules = personalRules.list();
+    if (rules.length === 0) {
+      globalThis.alert?.('Henüz kişisel göster/gizle kuralı yok.');
+      return;
+    }
+    const lines = rules.map((rule, index) => {
+      const action = rule.action === 'show' ? 'GÖSTER' : 'GİZLE';
+      const scope = rule.scope === 'comment' ? 'YORUM' : 'POST';
+      const phrase = rule.phrase.length > 80 ? `${rule.phrase.slice(0, 77)}...` : rule.phrase;
+      return `${index + 1}. [${scope}/${action}] ${phrase}`;
+    });
+    const choice = globalThis.prompt?.(
+      `Kişisel kurallar:\n\n${lines.join('\n')}\n\nSilmek istediğin kuralın numarasını yaz. İptal için boş bırak.`,
+      '',
+    );
+    if (!choice?.trim()) return;
+    const index = Number(choice.trim()) - 1;
+    if (!Number.isInteger(index) || !rules[index]) {
+      globalThis.alert?.('Geçerli bir kural numarası girilmedi.');
+      return;
+    }
+    if (!globalThis.confirm?.(`“${rules[index].phrase}” kuralı silinsin mi?`)) return;
+    try {
+      personalRules.remove(rules[index].id);
+      location.reload();
+    } catch (error) {
+      globalThis.alert?.(`Kural silinemedi: ${error.message}`);
+    }
+  });
+
+  registerMenu(`Kişisel kuralları indir (${personalRules.list().length})`, () => {
+    const raw = JSON.stringify(personalRules.exportPayload(), null, 2);
+    const blob = new Blob([raw], { type: 'application/json;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `reddit-karamsarlik-kisisel-kurallar-${new Date().toISOString().slice(0, 10)}.json`;
+    anchor.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  });
+
+  registerMenu('Kişisel kuralları içe aktar', () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'application/json,.json';
+    input.addEventListener('change', async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      if (file.size > 256 * 1024) {
+        globalThis.alert?.('Kural dosyası 256 KB sınırını aşıyor.');
+        return;
+      }
+      try {
+        const result = personalRules.importPayload(await file.text());
+        globalThis.alert?.(`${result.imported} kural içe aktarıldı. Toplam ${result.total} kural var.`);
+        location.reload();
+      } catch (error) {
+        globalThis.alert?.(`Kurallar içe aktarılamadı: ${error.message}`);
+      }
+    }, { once: true });
+    input.click();
+  });
+
+  registerMenu('Kişisel kuralları sıfırla', () => {
+    const count = personalRules.list().length;
+    if (count === 0) {
+      globalThis.alert?.('Silinecek kişisel kural yok.');
+      return;
+    }
+    if (!globalThis.confirm?.(`${count} kişisel kuralın tamamı silinsin mi?`)) return;
+    try {
+      personalRules.clear();
+      location.reload();
+    } catch (error) {
+      globalThis.alert?.(`Kurallar silinemedi: ${error.message}`);
+    }
   });
 
   registerMenu(`Karar günlüğünü indir (${journal.list().length})`, () => {

@@ -13,6 +13,7 @@ test('yeni Reddit postundan başlık, gövde ve subreddit çıkarır', () => {
   const posts = findPostElements(dom.window.document);
   assert.equal(posts.length, 1);
   assert.deepEqual(extractPost(posts[0]), {
+    kind: 'post',
     id: 'abc',
     subreddit: 'codingtr',
     title: 'Yazılım bitti',

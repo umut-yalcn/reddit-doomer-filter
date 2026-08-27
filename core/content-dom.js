@@ -78,6 +78,7 @@ export function extractPost(element) {
   );
 
   return {
+    kind: 'post',
     id: isNew
       ? element.getAttribute('post-id') || element.getAttribute('id') || ''
       : element.getAttribute('data-fullname') || element.getAttribute('id') || '',

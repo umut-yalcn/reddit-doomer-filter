@@ -11,10 +11,22 @@
       [slot="comment"] { margin: .6rem 0; }
     </style>
     <script>
-      const fixtureStorage = new Map();
+      const fixtureStorageKey = 'rdf_fixture_storage_v1';
+      const fixtureParams = new URLSearchParams(location.search);
+      if (fixtureParams.has('reset')) {
+        sessionStorage.removeItem(fixtureStorageKey);
+        history.replaceState(null, '', location.pathname);
+      }
+      const fixtureStorage = new Map(JSON.parse(sessionStorage.getItem(fixtureStorageKey) || '[]'));
       window.GM_getValue = (key, fallback) => fixtureStorage.has(key) ? fixtureStorage.get(key) : fallback;
-      window.GM_setValue = (key, value) => fixtureStorage.set(key, value);
+      window.GM_setValue = (key, value) => {
+        fixtureStorage.set(key, value);
+        sessionStorage.setItem(fixtureStorageKey, JSON.stringify([...fixtureStorage]));
+      };
       window.GM_registerMenuCommand = () => {};
+      window.prompt = (_message, suggested) => suggested;
+      window.alert = () => {};
+      window.confirm = () => true;
     </script>
   </head>
   <body>

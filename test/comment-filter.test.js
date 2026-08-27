@@ -260,3 +260,66 @@ test('r/TrGameDeveloper post ve yorumları varsayılan hedef kapsamındadır', (
   assert.equal(dom.window.document.querySelector('shreddit-post').style.display, 'none');
   assert.equal(dom.window.document.querySelector('[slot="comment"]').style.display, 'none');
 });
+
+test('kişisel göster ve gizle kuralları otomatik yorum kararının üzerine uygulanır', () => {
+  const shown = new JSDOM(newCommentMarkup({ body: 'Yazılım bitti.' }), {
+    url: 'https://www.reddit.com/r/CodingTR/comments/post/example/',
+  });
+  new PostFilter({
+    doc: shown.window.document,
+    matchPersonalRule: (content) => content.kind === 'comment'
+      ? { id: 'show-comment', action: 'show', scope: 'comment', phrase: 'Yazılım bitti' }
+      : null,
+  }).processTree(shown.window.document);
+  assert.equal(shown.window.document.querySelector('[slot="comment"]').style.display, '');
+
+  const hidden = new JSDOM(newCommentMarkup({ body: 'Normal bir teknoloji yorumu.' }), {
+    url: 'https://www.reddit.com/r/CodingTR/comments/post/example/',
+  });
+  new PostFilter({
+    doc: hidden.window.document,
+    matchPersonalRule: () => ({ id: 'hide-comment', action: 'hide', scope: 'comment', phrase: 'Normal bir teknoloji yorumu' }),
+  }).processTree(hidden.window.document);
+  assert.equal(hidden.window.document.querySelector('[slot="comment"]').style.display, 'none');
+  assert.match(hidden.window.document.querySelector('.rdf-bar--comment').textContent, /kişisel daima gizle/);
+});
+
+test('yorum daima göster düğmesi comment kapsamlı kural ister ve yalnız yorumu geri açar', () => {
+  const dom = new JSDOM(newCommentMarkup({ body: 'Yazılım bitti.' }), {
+    url: 'https://www.reddit.com/r/CodingTR/comments/post/example/',
+  });
+  const requests = [];
+  new PostFilter({
+    doc: dom.window.document,
+    onCreatePersonalRule: (request) => { requests.push(request); return true; },
+  }).processTree(dom.window.document);
+  const button = [...dom.window.document.querySelectorAll('.rdf-bar--comment button')]
+    .find((candidate) => candidate.textContent === 'Benzer yorumları daima göster');
+  assert.ok(button);
+  button.click();
+  assert.equal(requests[0].scope, 'comment');
+  assert.equal(requests[0].action, 'show');
+  assert.equal(requests[0].suggestedPhrase, 'Yazılım bitti');
+  assert.equal(dom.window.document.querySelector('[slot="comment"]').style.display, '');
+  assert.equal(dom.window.document.querySelector('.rdf-bar--comment'), null);
+});
+
+test('kalibrasyondaki yorum daima gizle düğmesi comment kapsamlı kural ister', () => {
+  const dom = new JSDOM(newCommentMarkup({ body: 'Normal yorum metni.' }), {
+    url: 'https://www.reddit.com/r/CodingTR/comments/post/example/',
+  });
+  const requests = [];
+  new PostFilter({
+    doc: dom.window.document,
+    settings: { calibrationMode: true },
+    onDecision: () => 'shown-comment',
+    onCreatePersonalRule: (request) => { requests.push(request); return true; },
+  }).processTree(dom.window.document);
+  const button = [...dom.window.document.querySelectorAll('.rdf-bar--comment-review button')]
+    .find((candidate) => candidate.textContent === 'Benzer yorumları daima gizle');
+  assert.ok(button);
+  button.click();
+  assert.equal(requests[0].scope, 'comment');
+  assert.equal(requests[0].action, 'hide');
+  assert.equal(requests[0].suggestedPhrase, 'Normal yorum metni.');
+});

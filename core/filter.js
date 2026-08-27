@@ -15,6 +15,7 @@ const STATE_ATTR = 'data-rdf-state';
 export const DEFAULT_SETTINGS = {
   enabled: true,
   filterComments: true,
+  personalOverridesEnabled: true,
   threshold: 4,
   protectQuestions: false,
   debug: false,
@@ -56,7 +57,14 @@ function signature(content) {
 }
 
 export class PostFilter {
-  constructor({ doc = document, settings = {}, onDecision = null, onFeedback = null } = {}) {
+  constructor({
+    doc = document,
+    settings = {},
+    onDecision = null,
+    onFeedback = null,
+    matchPersonalRule = null,
+    onCreatePersonalRule = null,
+  } = {}) {
     this.doc = doc;
     this.settings = { ...DEFAULT_SETTINGS, ...settings };
     this.settings.subreddits = [...(settings.subreddits ?? DEFAULT_SETTINGS.subreddits)].map((s) => s.toLowerCase());
@@ -67,6 +75,8 @@ export class PostFilter {
     this.presentations = new WeakMap();
     this.onDecision = typeof onDecision === 'function' ? onDecision : null;
     this.onFeedback = typeof onFeedback === 'function' ? onFeedback : null;
+    this.matchPersonalRule = typeof matchPersonalRule === 'function' ? matchPersonalRule : null;
+    this.onCreatePersonalRule = typeof onCreatePersonalRule === 'function' ? onCreatePersonalRule : null;
   }
 
   start() {
@@ -172,11 +182,13 @@ export class PostFilter {
       this.signatures.set(element, currentSignature);
       this.clearPresentation(element);
 
-      const result = scorePost(post, this.settings);
+      const result = this.applyPersonalRule(post, scorePost(post, this.settings));
       const decisionId = this.emitDecision(post, result);
       element.setAttribute(STATE_ATTR, result.hidden ? 'hidden' : 'shown');
       if (result.hidden) this.hidePost(post, result, decisionId);
-      else if (this.settings.calibrationMode) this.addShownFeedback(post, decisionId);
+      else if (this.settings.calibrationMode && result.personalRule?.action !== 'show') {
+        this.addShownFeedback(post, decisionId);
+      }
     } catch (error) {
       // Fail-open: filtre hatası hiçbir içeriği görünmez yapmamalı.
       this.clearPresentation(element);
@@ -200,11 +212,13 @@ export class PostFilter {
       this.signatures.set(element, currentSignature);
       this.clearPresentation(element);
 
-      const result = scorePost(comment, this.settings);
+      const result = this.applyPersonalRule(comment, scorePost(comment, this.settings));
       const decisionId = this.emitDecision(comment, result);
       element.setAttribute(STATE_ATTR, result.hidden ? 'hidden' : 'shown');
       if (result.hidden) this.hideComment(comment, result, decisionId);
-      else if (this.settings.calibrationMode) this.addShownCommentFeedback(comment, decisionId);
+      else if (this.settings.calibrationMode && result.personalRule?.action !== 'show') {
+        this.addShownCommentFeedback(comment, decisionId);
+      }
     } catch (error) {
       // Fail-open: yorum filtresi hatası yorum veya alt yanıtlarını görünmez yapmamalı.
       this.clearPresentation(element);
@@ -226,6 +240,64 @@ export class PostFilter {
     } catch (error) {
       console.warn('[Reddit Karamsarlık Filtresi] Karar günlüğe yazılamadı:', error);
       return null;
+    }
+  }
+
+  applyPersonalRule(content, result) {
+    if (!this.matchPersonalRule) return result;
+    let rule = null;
+    try {
+      rule = this.matchPersonalRule(content);
+    } catch (error) {
+      console.warn('[Reddit Karamsarlık Filtresi] Kişisel kurallar okunamadı:', error);
+      return result;
+    }
+    const expectedScope = content.kind === 'comment' ? 'comment' : 'post';
+    if (
+      !rule
+      || !['show', 'hide'].includes(rule.action)
+      || (rule.scope !== undefined && rule.scope !== expectedScope)
+    ) return result;
+
+    const hidden = rule.action === 'hide';
+    const reason = hidden ? 'kişisel daima gizle kuralı' : 'kişisel daima göster kuralı';
+    return {
+      ...result,
+      hidden,
+      score: hidden ? Math.max(result.score, result.threshold) : result.score,
+      source: 'personal',
+      clause: rule.phrase || result.clause,
+      reasons: [{ category: 'personal-rule', score: 0, reason }, ...result.reasons],
+      personalRule: {
+        id: String(rule.id ?? ''),
+        action: rule.action,
+        scope: content.kind === 'comment' ? 'comment' : 'post',
+        phrase: String(rule.phrase ?? ''),
+      },
+    };
+  }
+
+  emitPersonalRule(action, content, result) {
+    if (!this.onCreatePersonalRule) return false;
+    const scope = content.kind === 'comment' ? 'comment' : 'post';
+    const suggestedPhrase = String(result?.clause || content?.title || content?.body || '').trim().slice(0, 500);
+    try {
+      return this.onCreatePersonalRule({
+        action,
+        scope,
+        suggestedPhrase,
+        content: {
+          kind: scope,
+          id: content?.id,
+          subreddit: content?.subreddit,
+          title: content?.title,
+          body: content?.body,
+        },
+        result,
+      }) !== false;
+    } catch (error) {
+      console.warn('[Reddit Karamsarlık Filtresi] Kişisel kural kaydedilemedi:', error);
+      return false;
     }
   }
 
@@ -267,22 +339,32 @@ export class PostFilter {
     const show = this.doc.createElement('button');
     show.type = 'button';
     show.textContent = 'Göster';
-    show.addEventListener('click', () => {
+    const restore = () => {
       element.style.display = previousDisplay;
       element.setAttribute(STATE_ATTR, 'overridden');
       bar.remove();
-    }, { once: true });
+      this.presentations.delete(element);
+    };
+    show.addEventListener('click', restore, { once: true });
 
     bar.append(reason, show);
+    if (this.onCreatePersonalRule) {
+      const alwaysShow = this.doc.createElement('button');
+      alwaysShow.type = 'button';
+      alwaysShow.textContent = 'Daima göster';
+      alwaysShow.addEventListener('click', () => {
+        if (!this.emitPersonalRule('show', post, result)) return;
+        restore();
+      }, { once: true });
+      bar.append(alwaysShow);
+    }
     if (decisionId && this.onFeedback) {
       const incorrect = this.doc.createElement('button');
       incorrect.type = 'button';
       incorrect.textContent = 'Yanlış gizlendi';
       incorrect.addEventListener('click', () => {
         if (!this.emitFeedback(decisionId, 'false-positive')) return;
-        element.style.display = previousDisplay;
-        element.setAttribute(STATE_ATTR, 'overridden');
-        bar.remove();
+        restore();
       }, { once: true });
       bar.append(incorrect);
     }
@@ -320,6 +402,17 @@ export class PostFilter {
     show.addEventListener('click', restore, { once: true });
     bar.append(reason, show);
 
+    if (this.onCreatePersonalRule) {
+      const alwaysShow = this.doc.createElement('button');
+      alwaysShow.type = 'button';
+      alwaysShow.textContent = 'Benzer yorumları daima göster';
+      alwaysShow.addEventListener('click', () => {
+        if (!this.emitPersonalRule('show', comment, result)) return;
+        restore();
+      }, { once: true });
+      bar.append(alwaysShow);
+    }
+
     if (decisionId && this.onFeedback) {
       const incorrect = this.doc.createElement('button');
       incorrect.type = 'button';
@@ -353,6 +446,17 @@ export class PostFilter {
       missed.textContent = 'Kaydedildi';
     }, { once: true });
     review.append(label, missed);
+    if (this.onCreatePersonalRule) {
+      const alwaysHide = this.doc.createElement('button');
+      alwaysHide.type = 'button';
+      alwaysHide.textContent = 'Benzer yorumları daima gizle';
+      alwaysHide.addEventListener('click', () => {
+        if (!this.emitPersonalRule('hide', comment, { clause: comment.body })) return;
+        alwaysHide.disabled = true;
+        alwaysHide.textContent = 'Kaydedildi';
+      }, { once: true });
+      review.append(alwaysHide);
+    }
     comment.contentElement.parentNode.insertBefore(review, comment.contentElement.nextSibling);
     this.presentations.set(comment.element, { kind: 'review-comment', bar: review, hiddenNodes: [] });
   }
@@ -377,6 +481,17 @@ export class PostFilter {
     }, { once: true });
 
     review.append(label, missed);
+    if (this.onCreatePersonalRule) {
+      const alwaysHide = this.doc.createElement('button');
+      alwaysHide.type = 'button';
+      alwaysHide.textContent = 'Daima gizle';
+      alwaysHide.addEventListener('click', () => {
+        if (!this.emitPersonalRule('hide', post, { clause: post.title })) return;
+        alwaysHide.disabled = true;
+        alwaysHide.textContent = 'Kaydedildi';
+      }, { once: true });
+      review.append(alwaysHide);
+    }
     post.element.parentNode.insertBefore(review, post.element.nextSibling);
     this.presentations.set(post.element, { kind: 'review', bar: review, previousDisplay: post.element.style.display });
   }

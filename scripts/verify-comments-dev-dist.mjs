@@ -12,16 +12,20 @@ const development = await readFile(developmentPath, 'utf8');
 const metadata = Object.fromEntries(
   [...development.matchAll(/^\/\/ @(\w+)\s+(.+)$/gm)].map((match) => [match[1], match[2].trim()]),
 );
+const developmentVersion = '0.3.0-unified-dev';
 
 assert.equal(metadata.name, 'Reddit Karamsarlık Filtresi Yorum DEV');
 assert.equal(metadata.namespace, `${String(packageJson.homepage).replace(/\/$/, '')}/comments-dev`);
-assert.equal(metadata.version, `${packageJson.version}-comments-dev`);
+assert.equal(metadata.version, developmentVersion);
 assert.doesNotMatch(development, /^\/\/ @updateURL/m);
 assert.doesNotMatch(development, /^\/\/ @downloadURL/m);
 assert.match(development, /shreddit-comment/);
 assert.match(development, /Yorum filtresini kapat/);
+assert.match(development, /Daima göster/);
+assert.match(development, /Benzer yorumları daima göster/);
+assert.match(development, /Kişisel kuralları içe aktar/);
 assert.notEqual(development, production);
 
 execFileSync(process.execPath, [join(ROOT, 'build-comments-dev.mjs')], { cwd: ROOT, stdio: 'pipe' });
 assert.equal(await readFile(developmentPath, 'utf8'), development);
-console.log('Yorum DEV dist doğrulandı · ayrı namespace · deterministik · otomatik güncelleme kapalı');
+console.log('Birleşik DEV dist doğrulandı · aynı test kimliği · deterministik · otomatik güncelleme kapalı');

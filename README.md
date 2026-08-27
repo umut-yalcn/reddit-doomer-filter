@@ -19,15 +19,21 @@ Eşiği geçen post DOM'dan silinmez. Gizlenir ve yerine neden ile birlikte bir 
 
 Yorumlar aynı motorla ayrı ayrı değerlendirilir. Bir yorum gizlendiğinde yalnız o yorumun kendi metni ve işlem satırı kapanır; alt yanıtları görünür kalır. Yorum filtresi userscript menüsünden post filtresinden bağımsız kapatılabilir.
 
+Kişisel kurallar açıksa gizlenen posttaki **Daima göster** ve gizlenen yorumdaki **Benzer yorumları daima göster** düğmeleri düzenlenebilir bir ifade kaydeder. Kalibrasyon modundaki görünür içeriklerde karşılık gelen **Daima gizle** düğmeleri bulunur. Post kuralları yalnız postlara, yorum kuralları yalnız yorumlara uygulanır; birden fazla kural eşleşirse en uzun ifade, eşit uzunlukta ise en son tercih kazanır.
+
 Varsayılan eşik 4'tür. Soru başlıklarının özel koruması kapalıdır; “Yazılım bitti mi?” normal bir karamsar başlık gibi değerlendirilir. İsteğe bağlı soru koruması açılırsa yalnız başlık puanı yarıya iner, gövde puanı değişmez.
 
 ## Kurulum
 
-1. Tampermonkey veya Violentmonkey kurun.
-2. **[Userscript'i yükle](https://raw.githubusercontent.com/umut-yalcn/reddit-new-filter/main/dist/reddit-doom-filter.user.js)** bağlantısını açın.
-3. Kurulumu onaylayın ve Reddit'i yenileyin.
+Repo özel olduğu sürece GitHub raw bağlantıları tarayıcıdan anonim kuruluma açık değildir. Yerel kurulum için:
 
-Kurulu userscript yeni sürümleri aynı dağıtım adresinden otomatik olarak denetler. Kaynak kod [GitHub reposunda](https://github.com/umut-yalcn/reddit-new-filter), hata ve öneriler [Issues](https://github.com/umut-yalcn/reddit-new-filter/issues) bölümünde tutulur.
+1. Tampermonkey veya Violentmonkey kurun.
+2. `npm ci` ve `npm run build:comments-dev` komutlarını çalıştırın.
+3. Proje kökünde `python -m http.server 4173 --bind 127.0.0.1` ile geçici yerel sunucuyu başlatın.
+4. `http://127.0.0.1:4173/dist/reddit-doom-filter.comments-dev.user.js` adresini açın.
+5. Kurulumu onaylayın, yerel sunucuyu kapatın ve Reddit'i yenileyin.
+
+DEV paketi bilerek `@updateURL` ve `@downloadURL` taşımaz; kullanıcı onayı olmadan kurulu betiği değiştirmez. Repo ileride herkese açık yapılırsa üretim dağıtım bağlantısı ayrıca etkinleştirilebilir. Kaynak kod [GitHub reposunda](https://github.com/umut-yalcn/reddit-new-filter), hata ve öneriler [Issues](https://github.com/umut-yalcn/reddit-new-filter/issues) bölümünde tutulur.
 
 Userscript menüsünden:
 
@@ -36,12 +42,15 @@ Userscript menüsünden:
 - Debug gerekçelerini açabilirsiniz.
 - Kalibrasyon düğmelerini açabilirsiniz.
 - Yorum filtresini bağımsız açıp kapatabilirsiniz.
+- Kişisel kuralları açıp kapatabilir, silebilir, indirebilir, içe aktarabilir veya sıfırlayabilirsiniz.
 - Yerel karar günlüğünü JSON olarak indirebilirsiniz.
 - Dört subreddit filtresini ayrı ayrı açıp kapatabilirsiniz.
 
 ## Kalibrasyon ve geri bildirim
 
 Filtre, hedef subredditlerde değerlendirdiği en fazla 500 benzersiz post/yorum kararını yalnız tarayıcıdaki userscript deposunda saklar. Aynı Reddit içeriği tekrar işlendiğinde yeni kayıt oluşturmak yerine mevcut kaydın görülme sayısı güncellenir. Elle etiketlenmiş kayıtlar sınır uygulanırken etiketsiz kayıtlardan önce korunur.
+
+Kişisel göster/gizle kuralları da yalnız userscript deposunda tutulur ve 100 kayıtla sınırlıdır. İndirilen kural JSON dosyaları başka geliştirme sürümüne içe aktarılabilir. Eski kapsam bilgisi olmayan kurallar geriye uyumluluk için yalnız post kuralı kabul edilir.
 
 - Gizlenen post ve yorumlarda **Yanlış gizlendi** düğmesi yanlış pozitif etiketi kaydeder ve içeriği geri getirir.
 - Userscript menüsünden kalibrasyon modu açılırsa görünür bırakılan post ve yorumlarda **Gizlenmeliydi** düğmesi belirir.
@@ -69,6 +78,7 @@ npm run check:comments-dev
 - `core/scorer.js`: DOM'dan bağımsız puan ve karşıt anlatım motoru.
 - `core/content-dom.js`: yeni ve old Reddit post/yorum çıkarımı.
 - `core/filter.js`: dinamik post/yorum izleme, güvenli gizleme ve geri alma.
+- `core/overrides.js`: post/yorum kapsamlı ve en fazla 100 yerel kişisel kural.
 - `core/journal.js`: yerel, sınırlı ve geri bildirimli karar günlüğü.
 - `corpus/negative-examples.js`: kullanıcıdan alınmış yüksek güvenli negatif örnekler.
 - `userscript/main.js`: ayarlar ve userscript başlangıcı.
@@ -76,7 +86,7 @@ npm run check:comments-dev
 
 `npm run evaluate`, projedeki yüksek güvenli negatif corpus'u tanısal olarak ölçer. Komuta ek dosya yolları verilirse Markdown veya metin corpus'ları da ayrıca değerlendirilebilir. `npm run check` bütün `*.test.js` dosyalarını otomatik bulur; build, userscript sözdizimi, sürüm eşleşmesi ve deterministik çıktı denetimlerini birlikte çalıştırır.
 
-`npm run check:comments-dev`, üretim kontrollerine ek olarak adı ve namespace'i farklı, otomatik güncelleme adresi taşımayan `dist/reddit-doom-filter.comments-dev.user.js` dosyasını ve post/yorum bundle duman testini doğrular.
+`npm run check:comments-dev`, üretim kontrollerine ek olarak üretim betiğinden ayrı, otomatik güncelleme adresi taşımayan `dist/reddit-doom-filter.comments-dev.user.js` dosyasını; post/yorum kapsamını, eski kural geçişini ve bundle duman testini doğrular.
 
 ## Gizlilik ve kapsam
 
@@ -84,6 +94,7 @@ npm run check:comments-dev
 - Yalnız tarayıcının yüklediği DOM yerel olarak değerlendirilir.
 - Post/yorum metni, tarama geçmişi veya kullanıcı bilgisi dışarı gönderilmez.
 - Kalibrasyon günlüğü yalnız yerel userscript deposunda tutulur ve 500 kayıtla sınırlıdır.
+- Kişisel kurallar yalnız yerel userscript deposunda tutulur ve 100 kayıtla sınırlıdır.
 - Reddit hesabında gerçek engelleme, silme veya moderasyon yapılmaz.
 - İngilizce dil desteği bu sürümün kapsamında değildir.
 
@@ -92,3 +103,4 @@ npm run check:comments-dev
 - Reddit DOM yapısını değiştirdiğinde seçiciler güncellenebilir.
 - Türkçe doğal dil kuralları kesin değildir; geri alma çubuğu bu nedenle korunur.
 - Puan ağırlıkları daha büyük bir normal kontrol grubuyla yeniden kalibre edilmelidir.
+- Özel repo kullanılırken userscript güncellemeleri yerel kurulumla yapılır.

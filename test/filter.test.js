@@ -208,3 +208,66 @@ test('kalibrasyon modunda görünür post için kaçırıldı geri bildirimi sun
   assert.equal(button.textContent, 'Kaydedildi');
   assert.equal(button.disabled, true);
 });
+
+test('kişisel göster ve gizle kuralları otomatik post kararının üzerine uygulanır', () => {
+  const shown = new JSDOM(`<!doctype html><body>
+    <shreddit-post post-id="personal-show" post-title="Yazılım bitti" subreddit-prefixed-name="r/CodingTR"></shreddit-post>
+  </body>`, { url: 'https://www.reddit.com/r/CodingTR/new/' });
+  new PostFilter({
+    doc: shown.window.document,
+    matchPersonalRule: (content) => content.kind === 'post'
+      ? { id: 'show-post', action: 'show', scope: 'post', phrase: 'Yazılım bitti' }
+      : null,
+  }).processTree(shown.window.document);
+  assert.equal(shown.window.document.querySelector('shreddit-post').style.display, '');
+
+  const hidden = new JSDOM(`<!doctype html><body>
+    <shreddit-post post-id="personal-hide" post-title="Normal bir proje" subreddit-prefixed-name="r/CodingTR"></shreddit-post>
+  </body>`, { url: 'https://www.reddit.com/r/CodingTR/new/' });
+  new PostFilter({
+    doc: hidden.window.document,
+    matchPersonalRule: () => ({ id: 'hide-post', action: 'hide', scope: 'post', phrase: 'Normal bir proje' }),
+  }).processTree(hidden.window.document);
+  assert.equal(hidden.window.document.querySelector('shreddit-post').style.display, 'none');
+  assert.match(hidden.window.document.querySelector('.rdf-bar').textContent, /kişisel daima gizle/);
+});
+
+test('posttaki daima göster düğmesi post kapsamlı kural ister ve içeriği geri açar', () => {
+  const dom = new JSDOM(`<!doctype html><body>
+    <shreddit-post post-id="always-show-post" post-title="Yazılım bitti" subreddit-prefixed-name="r/CodingTR"></shreddit-post>
+  </body>`, { url: 'https://www.reddit.com/r/CodingTR/new/' });
+  const requests = [];
+  new PostFilter({
+    doc: dom.window.document,
+    onCreatePersonalRule: (request) => { requests.push(request); return true; },
+  }).processTree(dom.window.document);
+  const button = [...dom.window.document.querySelectorAll('.rdf-bar button')]
+    .find((candidate) => candidate.textContent === 'Daima göster');
+  assert.ok(button);
+  button.click();
+  assert.equal(requests[0].scope, 'post');
+  assert.equal(requests[0].action, 'show');
+  assert.equal(requests[0].suggestedPhrase, 'Yazılım bitti');
+  assert.equal(dom.window.document.querySelector('shreddit-post').style.display, '');
+  assert.equal(dom.window.document.querySelector('.rdf-bar'), null);
+});
+
+test('kalibrasyondaki daima gizle düğmesi post kapsamlı kural ister', () => {
+  const dom = new JSDOM(`<!doctype html><body>
+    <shreddit-post post-id="always-hide-post" post-title="Normal proje başlığı" subreddit-prefixed-name="r/CodingTR"></shreddit-post>
+  </body>`, { url: 'https://www.reddit.com/r/CodingTR/new/' });
+  const requests = [];
+  new PostFilter({
+    doc: dom.window.document,
+    settings: { calibrationMode: true },
+    onDecision: () => 'shown-post',
+    onCreatePersonalRule: (request) => { requests.push(request); return true; },
+  }).processTree(dom.window.document);
+  const button = [...dom.window.document.querySelectorAll('.rdf-bar--review button')]
+    .find((candidate) => candidate.textContent === 'Daima gizle');
+  assert.ok(button);
+  button.click();
+  assert.equal(requests[0].scope, 'post');
+  assert.equal(requests[0].action, 'hide');
+  assert.equal(requests[0].suggestedPhrase, 'Normal proje başlığı');
+});
