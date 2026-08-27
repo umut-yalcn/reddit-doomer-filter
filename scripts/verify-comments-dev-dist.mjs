@@ -12,7 +12,7 @@ const development = await readFile(developmentPath, 'utf8');
 const metadata = Object.fromEntries(
   [...development.matchAll(/^\/\/ @(\w+)\s+(.+)$/gm)].map((match) => [match[1], match[2].trim()]),
 );
-const developmentVersion = '0.3.0-unified-dev';
+const developmentVersion = '0.3.1-rehide-dev';
 
 assert.equal(metadata.name, 'Reddit Karamsarlık Filtresi Yorum DEV');
 assert.equal(metadata.namespace, `${String(packageJson.homepage).replace(/\/$/, '')}/comments-dev`);
@@ -24,6 +24,7 @@ assert.match(development, /Yorum filtresini kapat/);
 assert.match(development, /Daima göster/);
 assert.match(development, /Benzer yorumları daima göster/);
 assert.match(development, /Kişisel kuralları içe aktar/);
+assert.match(development, /Tekrar gizle/);
 assert.notEqual(development, production);
 
 execFileSync(process.execPath, [join(ROOT, 'build-comments-dev.mjs')], { cwd: ROOT, stdio: 'pipe' });

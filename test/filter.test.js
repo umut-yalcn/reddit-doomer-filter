@@ -21,7 +21,13 @@ test('hedef subredditte karamsar postu geri alınabilir biçimde gizler', () => 
 
   bar.querySelector('button').click();
   assert.equal(post.style.display, '');
-  assert.equal(dom.window.document.querySelector('.rdf-bar'), null);
+  assert.equal(bar.querySelector('button').textContent, 'Tekrar gizle');
+  assert.match(bar.textContent, /geçici olarak gösteriliyor/);
+
+  bar.querySelector('button').click();
+  assert.equal(post.style.display, 'none');
+  assert.equal(bar.querySelector('button').textContent, 'Göster');
+  assert.match(bar.textContent, /Karamsar içerik gizlendi/);
 });
 
 test('hedef dışı subreddit ve normal post görünür kalır', () => {
@@ -241,6 +247,10 @@ test('posttaki daima göster düğmesi post kapsamlı kural ister ve içeriği g
     doc: dom.window.document,
     onCreatePersonalRule: (request) => { requests.push(request); return true; },
   }).processTree(dom.window.document);
+  const temporary = [...dom.window.document.querySelectorAll('.rdf-bar button')]
+    .find((candidate) => candidate.textContent === 'Göster');
+  temporary.click();
+  assert.equal(temporary.textContent, 'Tekrar gizle');
   const button = [...dom.window.document.querySelectorAll('.rdf-bar button')]
     .find((candidate) => candidate.textContent === 'Daima göster');
   assert.ok(button);

@@ -1379,13 +1379,30 @@
       const show = this.doc.createElement('button');
       show.type = 'button';
       show.textContent = 'Göster';
-      const restore = () => {
+      const hiddenReason = reason.textContent;
+      const reveal = () => {
         element.style.display = previousDisplay;
         element.setAttribute(STATE_ATTR, 'overridden');
+      };
+      const finishReveal = () => {
+        reveal();
         bar.remove();
         this.presentations.delete(element);
       };
-      show.addEventListener('click', restore, { once: true });
+      let temporarilyShown = false;
+      show.addEventListener('click', () => {
+        temporarilyShown = !temporarilyShown;
+        if (temporarilyShown) {
+          reveal();
+          reason.textContent = 'Karamsar içerik geçici olarak gösteriliyor.';
+          show.textContent = 'Tekrar gizle';
+        } else {
+          element.style.display = 'none';
+          element.setAttribute(STATE_ATTR, 'hidden');
+          reason.textContent = hiddenReason;
+          show.textContent = 'Göster';
+        }
+      });
 
       bar.append(reason, show);
       if (this.onCreatePersonalRule) {
@@ -1394,7 +1411,7 @@
         alwaysShow.textContent = 'Daima göster';
         alwaysShow.addEventListener('click', () => {
           if (!this.emitPersonalRule('show', post, result)) return;
-          restore();
+          finishReveal();
         }, { once: true });
         bar.append(alwaysShow);
       }
@@ -1404,7 +1421,7 @@
         incorrect.textContent = 'Yanlış gizlendi';
         incorrect.addEventListener('click', () => {
           if (!this.emitFeedback(decisionId, 'false-positive')) return;
-          restore();
+          finishReveal();
         }, { once: true });
         bar.append(incorrect);
       }
@@ -1430,16 +1447,33 @@
         ? `Karamsar yorum gizlendi · ${result.score} puan · ${primaryReason} · “${result.clause}”`
         : `Karamsar yorum gizlendi · ${primaryReason}`;
 
-      const restore = () => {
+      const reveal = () => {
         for (const item of hiddenNodes) item.node.style.display = item.previousDisplay;
         element.setAttribute(STATE_ATTR, 'overridden');
+      };
+      const finishReveal = () => {
+        reveal();
         bar.remove();
         this.presentations.delete(element);
       };
       const show = this.doc.createElement('button');
       show.type = 'button';
       show.textContent = 'Göster';
-      show.addEventListener('click', restore, { once: true });
+      const hiddenReason = reason.textContent;
+      let temporarilyShown = false;
+      show.addEventListener('click', () => {
+        temporarilyShown = !temporarilyShown;
+        if (temporarilyShown) {
+          reveal();
+          reason.textContent = 'Karamsar yorum geçici olarak gösteriliyor.';
+          show.textContent = 'Tekrar gizle';
+        } else {
+          for (const { node } of hiddenNodes) node.style.display = 'none';
+          element.setAttribute(STATE_ATTR, 'hidden');
+          reason.textContent = hiddenReason;
+          show.textContent = 'Göster';
+        }
+      });
       bar.append(reason, show);
 
       if (this.onCreatePersonalRule) {
@@ -1448,7 +1482,7 @@
         alwaysShow.textContent = 'Benzer yorumları daima göster';
         alwaysShow.addEventListener('click', () => {
           if (!this.emitPersonalRule('show', comment, result)) return;
-          restore();
+          finishReveal();
         }, { once: true });
         bar.append(alwaysShow);
       }
@@ -1459,7 +1493,7 @@
         incorrect.textContent = 'Yanlış gizlendi';
         incorrect.addEventListener('click', () => {
           if (!this.emitFeedback(decisionId, 'false-positive')) return;
-          restore();
+          finishReveal();
         }, { once: true });
         bar.append(incorrect);
       }

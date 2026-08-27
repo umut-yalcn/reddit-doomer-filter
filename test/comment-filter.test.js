@@ -48,7 +48,16 @@ test('karamsar yeni Reddit yorumunun yalnız kendi içeriğini gizler ve geri ge
   bar.querySelector('button').click();
   assert.equal(ownBody.style.display, '');
   assert.equal(ownActions.style.display, '');
-  assert.equal(parent.querySelector('.rdf-bar--comment'), null);
+  assert.equal(childBody.style.display, '');
+  assert.equal(bar.querySelector('button').textContent, 'Tekrar gizle');
+  assert.match(bar.textContent, /geçici olarak gösteriliyor/);
+
+  bar.querySelector('button').click();
+  assert.equal(ownBody.style.display, 'none');
+  assert.equal(ownActions.style.display, 'none');
+  assert.equal(childBody.style.display, '');
+  assert.equal(bar.querySelector('button').textContent, 'Göster');
+  assert.match(bar.textContent, /Karamsar yorum gizlendi/);
 });
 
 test('normal ebeveyn yorumu altındaki karamsar yanıt ebeveyni etkilemeden gizlenir', () => {
@@ -293,6 +302,10 @@ test('yorum daima göster düğmesi comment kapsamlı kural ister ve yalnız yor
     doc: dom.window.document,
     onCreatePersonalRule: (request) => { requests.push(request); return true; },
   }).processTree(dom.window.document);
+  const temporary = [...dom.window.document.querySelectorAll('.rdf-bar--comment button')]
+    .find((candidate) => candidate.textContent === 'Göster');
+  temporary.click();
+  assert.equal(temporary.textContent, 'Tekrar gizle');
   const button = [...dom.window.document.querySelectorAll('.rdf-bar--comment button')]
     .find((candidate) => candidate.textContent === 'Benzer yorumları daima göster');
   assert.ok(button);

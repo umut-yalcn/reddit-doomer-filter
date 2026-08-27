@@ -68,6 +68,16 @@ assert.equal(migratedSettings.filterComments, true);
 assert.equal(migratedSettings.personalOverridesEnabled, true);
 assert.ok(migratedSettings.subreddits.includes('trgamedeveloper'));
 
+const temporaryShowComment = [...parent.querySelectorAll('.rdf-bar--comment button')]
+  .find((button) => button.textContent === 'Göster');
+assert.ok(temporaryShowComment);
+temporaryShowComment.click();
+assert.equal(parentBody.style.display, '');
+assert.equal(temporaryShowComment.textContent, 'Tekrar gizle');
+temporaryShowComment.click();
+assert.equal(parentBody.style.display, 'none');
+assert.equal(temporaryShowComment.textContent, 'Göster');
+
 const alwaysShowComment = [...parent.querySelectorAll('.rdf-bar--comment button')]
   .find((button) => button.textContent === 'Benzer yorumları daima göster');
 assert.ok(alwaysShowComment);
