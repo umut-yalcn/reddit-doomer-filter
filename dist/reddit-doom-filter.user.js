@@ -12,6 +12,7 @@
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_registerMenuCommand
+// @sandbox      DOM
 // @run-at       document-idle
 // ==/UserScript==
 
@@ -495,6 +496,12 @@
       return true;
     }
 
+    clear() {
+      if (this.load().length === 0) return false;
+      this.commit([]);
+      return true;
+    }
+
     exportPayload() {
       const entries = this.list();
       return {
@@ -928,6 +935,13 @@
   const NEW_COMMENT_SELECTOR = 'shreddit-comment';
   const OLD_COMMENT_SELECTOR = '.thing.comment';
   const COMMENT_SELECTOR = `${NEW_COMMENT_SELECTOR}, ${OLD_COMMENT_SELECTOR}`;
+  const MAX_TITLE_LENGTH = 1000;
+  const MAX_POST_BODY_LENGTH = 50000;
+  const MAX_COMMENT_BODY_LENGTH = 20000;
+
+  function limitText(value, maxLength) {
+    return String(value ?? '').trim().slice(0, maxLength);
+  }
 
   function includeSelfAndDescendants(root, selector) {
     const found = [];
@@ -1007,8 +1021,8 @@
         ? element.getAttribute('post-id') || element.getAttribute('id') || ''
         : element.getAttribute('data-fullname') || element.getAttribute('id') || '',
       subreddit,
-      title: title.trim(),
-      body: body.trim(),
+      title: limitText(title, MAX_TITLE_LENGTH),
+      body: limitText(body, MAX_POST_BODY_LENGTH),
       element,
     };
   }
@@ -1039,18 +1053,27 @@
         : element.getAttribute('data-fullname') || element.getAttribute('id') || '',
       subreddit,
       title: '',
-      body: textElement?.textContent?.trim() ?? '',
+      body: limitText(textElement?.textContent, MAX_COMMENT_BODY_LENGTH),
       element,
       contentElement,
       actionElements,
     };
   }
 
+  const contentDomTesting = {
+    MAX_TITLE_LENGTH,
+    MAX_POST_BODY_LENGTH,
+    MAX_COMMENT_BODY_LENGTH,
+    limitText,
+  };
+
 
   // ---- core/filter.js ----
 
   const STYLE_ID = 'rdf-style';
   const STATE_ATTR = 'data-rdf-state';
+  const INITIAL_SYNC_LIMIT = 100;
+  const INITIAL_CHUNK_SIZE = 50;
 
   const DEFAULT_SETTINGS = {
     enabled: true,
@@ -1111,6 +1134,9 @@
       this.observer = null;
       this.pending = new Set();
       this.scheduled = false;
+      this.initialQueue = [];
+      this.initialScheduled = false;
+      this.stopped = false;
       this.signatures = new WeakMap();
       this.presentations = new WeakMap();
       this.onDecision = typeof onDecision === 'function' ? onDecision : null;
@@ -1120,48 +1146,88 @@
     }
 
     start() {
+      this.stopped = false;
       injectStyle(this.doc);
-      this.processTree(this.doc);
+      const initialItems = this.collectInitialItems();
+      const synchronousCount = initialItems.length > INITIAL_SYNC_LIMIT
+        ? INITIAL_CHUNK_SIZE
+        : initialItems.length;
+      for (const item of initialItems.slice(0, synchronousCount)) this.processInitialItem(item);
+      this.initialQueue = initialItems.slice(synchronousCount);
 
       const Observer = this.doc.defaultView?.MutationObserver ?? globalThis.MutationObserver;
-      if (!Observer) return this;
-
-      this.observer = new Observer((records) => {
-        for (const record of records) {
-          if (record.type === 'childList') {
-            this.enqueueNode(record.target);
-            for (const node of record.addedNodes) this.enqueueNode(node);
-          } else {
-            this.enqueueNode(record.target);
+      if (Observer) {
+        this.observer = new Observer((records) => {
+          for (const record of records) {
+            if (record.type === 'childList') {
+              this.enqueueNode(record.target);
+              for (const node of record.addedNodes) this.enqueueNode(node);
+            } else {
+              this.enqueueNode(record.target);
+            }
           }
-        }
-        if (this.pending.size > 0) this.schedule();
-      });
-      this.observer.observe(this.doc.body || this.doc.documentElement, {
-        childList: true,
-        subtree: true,
-        characterData: true,
-        attributes: true,
-        attributeFilter: [
-          'post-title',
-          'post-id',
-          'subreddit-prefixed-name',
-          'subreddit-name',
-          'data-subreddit',
-          'data-fullname',
-          'permalink',
-          'thingid',
-          'slot',
-          'data-post-click-location',
-          'id',
-        ],
-      });
+          if (this.pending.size > 0) this.schedule();
+        });
+        this.observer.observe(this.doc.body || this.doc.documentElement, {
+          childList: true,
+          subtree: true,
+          characterData: true,
+          attributes: true,
+          attributeFilter: [
+            'post-title',
+            'post-id',
+            'subreddit-prefixed-name',
+            'subreddit-name',
+            'data-subreddit',
+            'data-fullname',
+            'permalink',
+            'thingid',
+            'slot',
+            'data-post-click-location',
+            'id',
+          ],
+        });
+      }
+      if (this.initialQueue.length > 0) this.scheduleInitial();
       return this;
     }
 
     stop() {
+      this.stopped = true;
       this.observer?.disconnect();
       this.observer = null;
+      this.initialQueue = [];
+      this.initialScheduled = false;
+    }
+
+    collectInitialItems() {
+      if (!this.settings.enabled) return [];
+      const items = findPostElements(this.doc).map((element) => ({ kind: 'post', element }));
+      if (this.settings.filterComments) {
+        items.push(...findCommentElements(this.doc).map((element) => ({ kind: 'comment', element })));
+      }
+      return items;
+    }
+
+    processInitialItem(item) {
+      if (!item?.element?.isConnected || this.stopped) return;
+      if (item.kind === 'comment') this.processComment(item.element);
+      else this.processPost(item.element);
+    }
+
+    scheduleInitial() {
+      if (this.initialScheduled || this.stopped || this.initialQueue.length === 0) return;
+      this.initialScheduled = true;
+      const win = this.doc.defaultView;
+      const run = () => {
+        this.initialScheduled = false;
+        if (this.stopped) return;
+        const chunk = this.initialQueue.splice(0, INITIAL_CHUNK_SIZE);
+        for (const item of chunk) this.processInitialItem(item);
+        if (this.initialQueue.length > 0) this.scheduleInitial();
+      };
+      if (typeof win?.requestIdleCallback === 'function') win.requestIdleCallback(run, { timeout: 250 });
+      else (win?.setTimeout ?? setTimeout)(run, 20);
     }
 
     enqueueNode(node) {
@@ -1578,13 +1644,23 @@
   const JOURNAL_KEY = 'rdf_journal_v1';
   const PERSONAL_RULES_KEY = 'rdf_personal_rules_v1';
   const SETTINGS_SCHEMA_VERSION = 3;
+  const fallbackStorage = new Map();
   let settingsMigrated = false;
+
+  function readStoredValue(key, fallback) {
+    return typeof GM_getValue === 'function'
+      ? GM_getValue(key, fallback)
+      : fallbackStorage.get(key) ?? fallback;
+  }
+
+  function writeStoredValue(key, value) {
+    if (typeof GM_setValue === 'function') GM_setValue(key, value);
+    else fallbackStorage.set(key, value);
+  }
 
   function loadSettings() {
     try {
-      const raw = typeof GM_getValue === 'function'
-        ? GM_getValue(SETTINGS_KEY, null)
-        : localStorage.getItem(SETTINGS_KEY);
+      const raw = readStoredValue(SETTINGS_KEY, null);
       const parsed = raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : {};
       const storedSchemaVersion = Number(parsed.settingsSchemaVersion) || 1;
       const merged = { ...DEFAULT_SETTINGS, ...parsed };
@@ -1609,8 +1685,7 @@
 
   function saveSettings(settings) {
     const raw = JSON.stringify(settings);
-    if (typeof GM_setValue === 'function') GM_setValue(SETTINGS_KEY, raw);
-    else localStorage.setItem(SETTINGS_KEY, raw);
+    writeStoredValue(SETTINGS_KEY, raw);
   }
 
   const settings = loadSettings();
@@ -1623,15 +1698,12 @@
   }
 
   function readPersonalRules() {
-    return typeof GM_getValue === 'function'
-      ? GM_getValue(PERSONAL_RULES_KEY, '[]')
-      : localStorage.getItem(PERSONAL_RULES_KEY) || '[]';
+    return readStoredValue(PERSONAL_RULES_KEY, '[]');
   }
 
   function writePersonalRules(rules) {
     const raw = JSON.stringify(rules);
-    if (typeof GM_setValue === 'function') GM_setValue(PERSONAL_RULES_KEY, raw);
-    else localStorage.setItem(PERSONAL_RULES_KEY, raw);
+    writeStoredValue(PERSONAL_RULES_KEY, raw);
   }
 
   const personalRules = new PersonalRuleStore({
@@ -1642,15 +1714,12 @@
   });
 
   function readJournal() {
-    return typeof GM_getValue === 'function'
-      ? GM_getValue(JOURNAL_KEY, '[]')
-      : localStorage.getItem(JOURNAL_KEY) || '[]';
+    return readStoredValue(JOURNAL_KEY, '[]');
   }
 
   function writeJournal(entries) {
     const raw = JSON.stringify(entries);
-    if (typeof GM_setValue === 'function') GM_setValue(JOURNAL_KEY, raw);
-    else localStorage.setItem(JOURNAL_KEY, raw);
+    writeStoredValue(JOURNAL_KEY, raw);
   }
 
   const journal = new DecisionJournal({
@@ -1667,7 +1736,7 @@
       console.warn('[Reddit Karamsarlık Filtresi] Bekleyen günlük yazılamadı:', error);
     }
   });
-  const filter = new PostFilter({
+  new PostFilter({
     settings,
     onDecision: (post, result) => journal.record(post, result),
     onFeedback: (decisionId, feedback) => journal.mark(decisionId, feedback),
@@ -1830,6 +1899,22 @@
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   });
 
+  registerMenu('Karar günlüğünü sıfırla', () => {
+    const count = journal.list().length;
+    if (count === 0) {
+      globalThis.alert?.('Silinecek karar kaydı yok.');
+      return;
+    }
+    if (!globalThis.confirm?.(`${count} yerel karar kaydının tamamı silinsin mi?`)) return;
+    try {
+      journal.clear();
+      journal.flush();
+      globalThis.alert?.('Yerel karar günlüğü silindi.');
+    } catch (error) {
+      globalThis.alert?.(`Karar günlüğü silinemedi: ${error.message}`);
+    }
+  });
+
   for (const subreddit of DEFAULT_SETTINGS.subreddits) {
     const active = settings.subreddits.includes(subreddit);
     registerMenu(`${active ? '✓' : '○'} r/${subreddit} filtresi`, () => {
@@ -1840,7 +1925,5 @@
       location.reload();
     });
   }
-
-  globalThis.__redditDoomFilter = filter;
 
 })();

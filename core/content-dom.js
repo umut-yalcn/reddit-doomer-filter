@@ -4,6 +4,13 @@ const POST_SELECTOR = `${NEW_POST_SELECTOR}, ${OLD_POST_SELECTOR}`;
 const NEW_COMMENT_SELECTOR = 'shreddit-comment';
 const OLD_COMMENT_SELECTOR = '.thing.comment';
 const COMMENT_SELECTOR = `${NEW_COMMENT_SELECTOR}, ${OLD_COMMENT_SELECTOR}`;
+const MAX_TITLE_LENGTH = 1000;
+const MAX_POST_BODY_LENGTH = 50000;
+const MAX_COMMENT_BODY_LENGTH = 20000;
+
+function limitText(value, maxLength) {
+  return String(value ?? '').trim().slice(0, maxLength);
+}
 
 function includeSelfAndDescendants(root, selector) {
   const found = [];
@@ -83,8 +90,8 @@ export function extractPost(element) {
       ? element.getAttribute('post-id') || element.getAttribute('id') || ''
       : element.getAttribute('data-fullname') || element.getAttribute('id') || '',
     subreddit,
-    title: title.trim(),
-    body: body.trim(),
+    title: limitText(title, MAX_TITLE_LENGTH),
+    body: limitText(body, MAX_POST_BODY_LENGTH),
     element,
   };
 }
@@ -115,9 +122,16 @@ export function extractComment(element) {
       : element.getAttribute('data-fullname') || element.getAttribute('id') || '',
     subreddit,
     title: '',
-    body: textElement?.textContent?.trim() ?? '',
+    body: limitText(textElement?.textContent, MAX_COMMENT_BODY_LENGTH),
     element,
     contentElement,
     actionElements,
   };
 }
+
+export const contentDomTesting = {
+  MAX_TITLE_LENGTH,
+  MAX_POST_BODY_LENGTH,
+  MAX_COMMENT_BODY_LENGTH,
+  limitText,
+};

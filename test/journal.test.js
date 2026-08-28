@@ -139,3 +139,11 @@ test('bozuk depolamayı fail-open ele alır ve günlük boyutunu sınırlar', ()
   journal.record({ subreddit: 'CodingTR', title: 'Üç', body: '' }, result);
   assert.deepEqual(journal.list().map((entry) => entry.title), ['İki', 'Üç']);
 });
+
+test('yerel karar günlüğünü açıkça sıfırlar', () => {
+  const state = memoryJournal();
+  state.journal.record({ subreddit: 'CodingTR', title: 'Bir', body: '' }, result);
+  assert.equal(state.journal.clear(), true);
+  assert.deepEqual(state.journal.list(), []);
+  assert.equal(state.journal.clear(), false);
+});

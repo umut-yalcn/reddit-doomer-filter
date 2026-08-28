@@ -281,3 +281,15 @@ test('kalibrasyondaki daima gizle düğmesi post kapsamlı kural ister', () => {
   assert.equal(requests[0].action, 'hide');
   assert.equal(requests[0].suggestedPhrase, 'Normal proje başlığı');
 });
+
+test('uzun post gövdesinin sonundaki karamsar sinyali kesmeden değerlendirir', () => {
+  const filler = 'güvenli içerik '.repeat(2200);
+  const dom = new JSDOM(`<!doctype html><body>
+    <shreddit-post post-id="long-post" post-title="Uzun değerlendirme" subreddit-prefixed-name="r/CodingTR">
+      <div slot="text-body">${filler} Yazılım sektörü bitti.</div>
+    </shreddit-post>
+  </body>`, { url: 'https://www.reddit.com/r/CodingTR/new/' });
+  const post = dom.window.document.querySelector('shreddit-post');
+  new PostFilter({ doc: dom.window.document }).processTree(dom.window.document);
+  assert.equal(post.style.display, 'none');
+});

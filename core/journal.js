@@ -186,6 +186,12 @@ export class DecisionJournal {
     return true;
   }
 
+  clear() {
+    if (this.load().length === 0) return false;
+    this.commit([]);
+    return true;
+  }
+
   exportPayload() {
     const entries = this.list();
     return {

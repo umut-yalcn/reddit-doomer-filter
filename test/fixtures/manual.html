@@ -6,8 +6,12 @@
   </head>
   <body>
     <script>
+      const fixtureStorage = new Map();
+      window.GM_getValue = (key, fallback) => fixtureStorage.has(key) ? fixtureStorage.get(key) : fallback;
+      window.GM_setValue = (key, value) => fixtureStorage.set(key, value);
+      window.GM_registerMenuCommand = () => {};
       if (new URLSearchParams(location.search).has('calibration')) {
-        localStorage.setItem('rdf_settings_v1', JSON.stringify({
+        GM_setValue('rdf_settings_v1', JSON.stringify({
           enabled: true,
           threshold: 4,
           protectQuestions: false,
@@ -43,7 +47,7 @@
         output.id = 'fixture-journal-status';
         const render = () => {
           try {
-            const entries = JSON.parse(localStorage.getItem('rdf_journal_v1') || '[]');
+            const entries = JSON.parse(GM_getValue('rdf_journal_v1', '[]'));
             const feedback = entries.filter((entry) => entry.feedback).length;
             output.textContent = `Günlük: ${entries.length} · Etiketli: ${feedback}`;
           } catch {

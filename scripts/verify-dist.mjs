@@ -25,6 +25,7 @@ const expectedMetadata = {
   supportURL: packageJson.bugs.url,
   updateURL: distributionUrl,
   downloadURL: distributionUrl,
+  sandbox: 'DOM',
 };
 
 for (const [key, expected] of Object.entries(expectedMetadata)) {
@@ -42,5 +43,8 @@ const after = await readFile(DIST, 'utf8');
 if (before !== after) {
   throw new Error(`Build deterministik değil: ${sha256(before)} != ${sha256(after)}`);
 }
+
+if (/__redditDoomFilter/.test(after)) throw new Error('Global debug yüzeyi dist içinde olmamalı.');
+if (/localStorage\.(?:getItem|setItem)/.test(after)) throw new Error('Reddit localStorage kullanımı dist içinde olmamalı.');
 
 console.log(`dist doğrulandı · sürüm ${packageJson.version} · sha256 ${sha256(after)}`);

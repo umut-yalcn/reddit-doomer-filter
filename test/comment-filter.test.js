@@ -336,3 +336,28 @@ test('kalibrasyondaki yorum daima gizle düğmesi comment kapsamlı kural ister'
   assert.equal(requests[0].action, 'hide');
   assert.equal(requests[0].suggestedPhrase, 'Normal yorum metni.');
 });
+
+test('büyük ilk DOM taramasını küçük parçalara bölerek tamamlar', async () => {
+  const comments = Array.from({ length: 130 }, (_, index) => `
+    <shreddit-comment thingid="t1_chunk_${index}" permalink="/r/CodingTR/comments/post/comment/${index}/">
+      <div slot="comment">Yazılım sektörü bitti.</div>
+    </shreddit-comment>
+  `).join('');
+  const dom = new JSDOM(`<!doctype html><html><head></head><body>${comments}</body></html>`, {
+    url: 'https://www.reddit.com/r/CodingTR/comments/post/example/',
+    pretendToBeVisual: true,
+  });
+  const filter = new PostFilter({ doc: dom.window.document }).start();
+  const elements = [...dom.window.document.querySelectorAll('shreddit-comment')];
+
+  assert.equal(elements[0].querySelector('[slot="comment"]').style.display, 'none');
+  assert.equal(elements.at(-1).querySelector('[slot="comment"]').style.display, '');
+  const deadline = Date.now() + 2000;
+  while (elements.at(-1).querySelector('[slot="comment"]').style.display !== 'none' && Date.now() < deadline) {
+    await new Promise((resolve) => dom.window.setTimeout(resolve, 25));
+  }
+  assert.equal(elements.at(-1).querySelector('[slot="comment"]').style.display, 'none');
+
+  filter.stop();
+  dom.window.close();
+});

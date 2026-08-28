@@ -1,7 +1,8 @@
 import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
-import { extname, join, normalize } from 'node:path';
+import { extname } from 'node:path';
 import { createServer } from 'node:http';
+import { resolvePathWithinRoot } from './path-safety.mjs';
 
 const root = process.cwd();
 const port = Number(process.env.PORT || 4173);
@@ -14,8 +15,7 @@ const types = {
 createServer(async (request, response) => {
   try {
     const relative = decodeURIComponent(new URL(request.url, `http://127.0.0.1:${port}`).pathname).replace(/^\/+/, '');
-    const path = normalize(join(root, relative || 'test/fixtures/manual.html'));
-    if (!path.startsWith(root)) throw new Error('Geçersiz yol');
+    const path = await resolvePathWithinRoot(root, relative || 'test/fixtures/manual.html');
     const info = await stat(path);
     if (!info.isFile()) throw new Error('Dosya değil');
     response.writeHead(200, { 'content-type': types[extname(path)] || 'application/octet-stream' });

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { JSDOM } from 'jsdom';
-import { findPostElements, extractPost } from '../core/content-dom.js';
+import { contentDomTesting, findPostElements, extractPost } from '../core/content-dom.js';
 
 test('yeni Reddit postundan başlık, gövde ve subreddit çıkarır', () => {
   const dom = new JSDOM(`<!doctype html><body>
@@ -33,4 +33,11 @@ test('old Reddit postundan metin çıkarır', () => {
   const post = findPostElements(dom.window.document)[0];
   assert.equal(extractPost(post).subreddit, 'turkdev');
   assert.equal(extractPost(post).body, 'Normal gövde');
+});
+
+test('aşırı uzun Reddit metnini puanlamadan önce sınırlarken uzun post aralığını korur', () => {
+  const huge = new JSDOM(`<shreddit-post post-title="${'A'.repeat(1500)}" subreddit-prefixed-name="r/CodingTR"><div slot="text-body">${'B'.repeat(60000)}</div></shreddit-post>`);
+  const limited = extractPost(huge.window.document.querySelector('shreddit-post'));
+  assert.equal(limited.title.length, contentDomTesting.MAX_TITLE_LENGTH);
+  assert.equal(limited.body.length, contentDomTesting.MAX_POST_BODY_LENGTH);
 });

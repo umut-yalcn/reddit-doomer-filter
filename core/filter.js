@@ -11,6 +11,8 @@ import { scorePost } from './scorer.js';
 
 const STYLE_ID = 'rdf-style';
 const STATE_ATTR = 'data-rdf-state';
+const INITIAL_SYNC_LIMIT = 100;
+const INITIAL_CHUNK_SIZE = 50;
 
 export const DEFAULT_SETTINGS = {
   enabled: true,
@@ -71,6 +73,9 @@ export class PostFilter {
     this.observer = null;
     this.pending = new Set();
     this.scheduled = false;
+    this.initialQueue = [];
+    this.initialScheduled = false;
+    this.stopped = false;
     this.signatures = new WeakMap();
     this.presentations = new WeakMap();
     this.onDecision = typeof onDecision === 'function' ? onDecision : null;
@@ -80,48 +85,88 @@ export class PostFilter {
   }
 
   start() {
+    this.stopped = false;
     injectStyle(this.doc);
-    this.processTree(this.doc);
+    const initialItems = this.collectInitialItems();
+    const synchronousCount = initialItems.length > INITIAL_SYNC_LIMIT
+      ? INITIAL_CHUNK_SIZE
+      : initialItems.length;
+    for (const item of initialItems.slice(0, synchronousCount)) this.processInitialItem(item);
+    this.initialQueue = initialItems.slice(synchronousCount);
 
     const Observer = this.doc.defaultView?.MutationObserver ?? globalThis.MutationObserver;
-    if (!Observer) return this;
-
-    this.observer = new Observer((records) => {
-      for (const record of records) {
-        if (record.type === 'childList') {
-          this.enqueueNode(record.target);
-          for (const node of record.addedNodes) this.enqueueNode(node);
-        } else {
-          this.enqueueNode(record.target);
+    if (Observer) {
+      this.observer = new Observer((records) => {
+        for (const record of records) {
+          if (record.type === 'childList') {
+            this.enqueueNode(record.target);
+            for (const node of record.addedNodes) this.enqueueNode(node);
+          } else {
+            this.enqueueNode(record.target);
+          }
         }
-      }
-      if (this.pending.size > 0) this.schedule();
-    });
-    this.observer.observe(this.doc.body || this.doc.documentElement, {
-      childList: true,
-      subtree: true,
-      characterData: true,
-      attributes: true,
-      attributeFilter: [
-        'post-title',
-        'post-id',
-        'subreddit-prefixed-name',
-        'subreddit-name',
-        'data-subreddit',
-        'data-fullname',
-        'permalink',
-        'thingid',
-        'slot',
-        'data-post-click-location',
-        'id',
-      ],
-    });
+        if (this.pending.size > 0) this.schedule();
+      });
+      this.observer.observe(this.doc.body || this.doc.documentElement, {
+        childList: true,
+        subtree: true,
+        characterData: true,
+        attributes: true,
+        attributeFilter: [
+          'post-title',
+          'post-id',
+          'subreddit-prefixed-name',
+          'subreddit-name',
+          'data-subreddit',
+          'data-fullname',
+          'permalink',
+          'thingid',
+          'slot',
+          'data-post-click-location',
+          'id',
+        ],
+      });
+    }
+    if (this.initialQueue.length > 0) this.scheduleInitial();
     return this;
   }
 
   stop() {
+    this.stopped = true;
     this.observer?.disconnect();
     this.observer = null;
+    this.initialQueue = [];
+    this.initialScheduled = false;
+  }
+
+  collectInitialItems() {
+    if (!this.settings.enabled) return [];
+    const items = findPostElements(this.doc).map((element) => ({ kind: 'post', element }));
+    if (this.settings.filterComments) {
+      items.push(...findCommentElements(this.doc).map((element) => ({ kind: 'comment', element })));
+    }
+    return items;
+  }
+
+  processInitialItem(item) {
+    if (!item?.element?.isConnected || this.stopped) return;
+    if (item.kind === 'comment') this.processComment(item.element);
+    else this.processPost(item.element);
+  }
+
+  scheduleInitial() {
+    if (this.initialScheduled || this.stopped || this.initialQueue.length === 0) return;
+    this.initialScheduled = true;
+    const win = this.doc.defaultView;
+    const run = () => {
+      this.initialScheduled = false;
+      if (this.stopped) return;
+      const chunk = this.initialQueue.splice(0, INITIAL_CHUNK_SIZE);
+      for (const item of chunk) this.processInitialItem(item);
+      if (this.initialQueue.length > 0) this.scheduleInitial();
+    };
+    if (typeof win?.requestIdleCallback === 'function') win.requestIdleCallback(run, { timeout: 250 });
+    else (win?.setTimeout ?? setTimeout)(run, 20);
   }
 
   enqueueNode(node) {

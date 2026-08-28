@@ -6,13 +6,23 @@ const SETTINGS_KEY = 'rdf_settings_v1';
 const JOURNAL_KEY = 'rdf_journal_v1';
 const PERSONAL_RULES_KEY = 'rdf_personal_rules_v1';
 const SETTINGS_SCHEMA_VERSION = 3;
+const fallbackStorage = new Map();
 let settingsMigrated = false;
+
+function readStoredValue(key, fallback) {
+  return typeof GM_getValue === 'function'
+    ? GM_getValue(key, fallback)
+    : fallbackStorage.get(key) ?? fallback;
+}
+
+function writeStoredValue(key, value) {
+  if (typeof GM_setValue === 'function') GM_setValue(key, value);
+  else fallbackStorage.set(key, value);
+}
 
 function loadSettings() {
   try {
-    const raw = typeof GM_getValue === 'function'
-      ? GM_getValue(SETTINGS_KEY, null)
-      : localStorage.getItem(SETTINGS_KEY);
+    const raw = readStoredValue(SETTINGS_KEY, null);
     const parsed = raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : {};
     const storedSchemaVersion = Number(parsed.settingsSchemaVersion) || 1;
     const merged = { ...DEFAULT_SETTINGS, ...parsed };
@@ -37,8 +47,7 @@ function loadSettings() {
 
 function saveSettings(settings) {
   const raw = JSON.stringify(settings);
-  if (typeof GM_setValue === 'function') GM_setValue(SETTINGS_KEY, raw);
-  else localStorage.setItem(SETTINGS_KEY, raw);
+  writeStoredValue(SETTINGS_KEY, raw);
 }
 
 const settings = loadSettings();
@@ -51,15 +60,12 @@ if (settingsMigrated) {
 }
 
 function readPersonalRules() {
-  return typeof GM_getValue === 'function'
-    ? GM_getValue(PERSONAL_RULES_KEY, '[]')
-    : localStorage.getItem(PERSONAL_RULES_KEY) || '[]';
+  return readStoredValue(PERSONAL_RULES_KEY, '[]');
 }
 
 function writePersonalRules(rules) {
   const raw = JSON.stringify(rules);
-  if (typeof GM_setValue === 'function') GM_setValue(PERSONAL_RULES_KEY, raw);
-  else localStorage.setItem(PERSONAL_RULES_KEY, raw);
+  writeStoredValue(PERSONAL_RULES_KEY, raw);
 }
 
 const personalRules = new PersonalRuleStore({
@@ -70,15 +76,12 @@ const personalRules = new PersonalRuleStore({
 });
 
 function readJournal() {
-  return typeof GM_getValue === 'function'
-    ? GM_getValue(JOURNAL_KEY, '[]')
-    : localStorage.getItem(JOURNAL_KEY) || '[]';
+  return readStoredValue(JOURNAL_KEY, '[]');
 }
 
 function writeJournal(entries) {
   const raw = JSON.stringify(entries);
-  if (typeof GM_setValue === 'function') GM_setValue(JOURNAL_KEY, raw);
-  else localStorage.setItem(JOURNAL_KEY, raw);
+  writeStoredValue(JOURNAL_KEY, raw);
 }
 
 const journal = new DecisionJournal({
@@ -95,7 +98,7 @@ globalThis.addEventListener?.('pagehide', () => {
     console.warn('[Reddit Karamsarlık Filtresi] Bekleyen günlük yazılamadı:', error);
   }
 });
-const filter = new PostFilter({
+new PostFilter({
   settings,
   onDecision: (post, result) => journal.record(post, result),
   onFeedback: (decisionId, feedback) => journal.mark(decisionId, feedback),
@@ -258,6 +261,22 @@ registerMenu(`Karar günlüğünü indir (${journal.list().length})`, () => {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 });
 
+registerMenu('Karar günlüğünü sıfırla', () => {
+  const count = journal.list().length;
+  if (count === 0) {
+    globalThis.alert?.('Silinecek karar kaydı yok.');
+    return;
+  }
+  if (!globalThis.confirm?.(`${count} yerel karar kaydının tamamı silinsin mi?`)) return;
+  try {
+    journal.clear();
+    journal.flush();
+    globalThis.alert?.('Yerel karar günlüğü silindi.');
+  } catch (error) {
+    globalThis.alert?.(`Karar günlüğü silinemedi: ${error.message}`);
+  }
+});
+
 for (const subreddit of DEFAULT_SETTINGS.subreddits) {
   const active = settings.subreddits.includes(subreddit);
   registerMenu(`${active ? '✓' : '○'} r/${subreddit} filtresi`, () => {
@@ -268,5 +287,3 @@ for (const subreddit of DEFAULT_SETTINGS.subreddits) {
     location.reload();
   });
 }
-
-globalThis.__redditDoomFilter = filter;

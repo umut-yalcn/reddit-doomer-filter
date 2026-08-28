@@ -29,7 +29,7 @@ Repo özel olduğu sürece GitHub raw bağlantıları tarayıcıdan anonim kurul
 
 1. Tampermonkey veya Violentmonkey kurun.
 2. `npm ci` ve `npm run build:comments-dev` komutlarını çalıştırın.
-3. Proje kökünde `python -m http.server 4173 --bind 127.0.0.1` ile geçici yerel sunucuyu başlatın.
+3. Proje kökünde `node scripts/serve.mjs` ile yalnız `127.0.0.1` üzerinde çalışan, proje kökü dışına erişimi reddeden geçici yerel sunucuyu başlatın.
 4. `http://127.0.0.1:4173/dist/reddit-doom-filter.comments-dev.user.js` adresini açın.
 5. Kurulumu onaylayın, yerel sunucuyu kapatın ve Reddit'i yenileyin.
 
@@ -43,7 +43,7 @@ Userscript menüsünden:
 - Kalibrasyon düğmelerini açabilirsiniz.
 - Yorum filtresini bağımsız açıp kapatabilirsiniz.
 - Kişisel kuralları açıp kapatabilir, silebilir, indirebilir, içe aktarabilir veya sıfırlayabilirsiniz.
-- Yerel karar günlüğünü JSON olarak indirebilirsiniz.
+- Yerel karar günlüğünü JSON olarak indirebilir veya tamamen sıfırlayabilirsiniz.
 - Dört subreddit filtresini ayrı ayrı açıp kapatabilirsiniz.
 
 ## Kalibrasyon ve geri bildirim
@@ -92,9 +92,12 @@ npm run check:comments-dev
 
 - Reddit API veya harici scraping servisi kullanılmaz.
 - Yalnız tarayıcının yüklediği DOM yerel olarak değerlendirilir.
+- Betik açık `DOM` sandbox'ında çalışır ve sayfaya global debug nesnesi bırakmaz.
 - Post/yorum metni, tarama geçmişi veya kullanıcı bilgisi dışarı gönderilmez.
 - Kalibrasyon günlüğü yalnız yerel userscript deposunda tutulur ve 500 kayıtla sınırlıdır.
 - Kişisel kurallar yalnız yerel userscript deposunda tutulur ve 100 kayıtla sınırlıdır.
+- Userscript depolama API'si kullanılamazsa Reddit origin depolamasına geçilmez; veriler yalnız o çalıştırma için bellekte tutulur.
+- Çok büyük ilk DOM taramaları 50 içeriklik parçalara bölünür; tek içerikten puanlanan metin uzunluğu ayrıca sınırlandırılır.
 - Reddit hesabında gerçek engelleme, silme veya moderasyon yapılmaz.
 - İngilizce dil desteği bu sürümün kapsamında değildir.
 

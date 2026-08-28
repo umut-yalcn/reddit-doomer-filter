@@ -11,6 +11,8 @@ function boot(markup, {
   url = 'https://www.reddit.com/r/CodingTR/comments/post/example/',
   initialStorage = new Map(),
   promptValue,
+  provideGM = true,
+  forbidLocalStorage = false,
 } = {}) {
   const storage = new Map(initialStorage);
   const menus = [];
@@ -20,8 +22,16 @@ function boot(markup, {
   const virtualConsole = new VirtualConsole();
   virtualConsole.on('jsdomError', (error) => jsdomErrors.push(error));
   const dom = new JSDOM(markup, { url, runScripts: 'outside-only', pretendToBeVisual: true, virtualConsole });
-  dom.window.GM_getValue = (key, fallback) => storage.has(key) ? storage.get(key) : fallback;
-  dom.window.GM_setValue = (key, value) => storage.set(key, value);
+  if (provideGM) {
+    dom.window.GM_getValue = (key, fallback) => storage.has(key) ? storage.get(key) : fallback;
+    dom.window.GM_setValue = (key, value) => storage.set(key, value);
+  }
+  if (forbidLocalStorage) {
+    Object.defineProperty(dom.window, 'localStorage', {
+      configurable: true,
+      get: () => { throw new Error('localStorage kullanılmamalı'); },
+    });
+  }
   dom.window.GM_registerMenuCommand = (label, action) => menus.push({ label, action });
   dom.window.prompt = (message, suggested) => {
     prompts.push({ message, suggested });
@@ -160,9 +170,28 @@ const oldReddit = boot(`<!doctype html><html><head></head><body>
 </body></html>`, { url: 'https://old.reddit.com/r/TurkDev/comments/post/example/' });
 assert.equal(oldReddit.dom.window.document.querySelector('.usertext-body').style.display, 'none');
 
+const noGrantFallback = boot(`<!doctype html><html><head></head><body>
+  <shreddit-post post-id="fallback-post" post-title="Yazılım sektörü bitti" subreddit-prefixed-name="r/CodingTR"></shreddit-post>
+</body></html>`, { provideGM: false, forbidLocalStorage: true });
+assert.equal(noGrantFallback.dom.window.document.querySelector('shreddit-post').style.display, 'none');
+assert.equal('__redditDoomFilter' in noGrantFallback.dom.window, false);
+
+const journalReset = boot('<!doctype html><html><head></head><body></body></html>', {
+  initialStorage: new Map([
+    ['rdf_settings_v1', JSON.stringify({ settingsSchemaVersion: 3, enabled: false })],
+    ['rdf_journal_v1', JSON.stringify([{ id: 'local-entry' }])],
+  ]),
+});
+const resetJournalMenu = journalReset.menus.find((menu) => menu.label === 'Karar günlüğünü sıfırla');
+assert.ok(resetJournalMenu);
+resetJournalMenu.action();
+assert.deepEqual(JSON.parse(journalReset.storage.get('rdf_journal_v1')), []);
+assert.ok(journalReset.alerts.includes('Yerel karar günlüğü silindi.'));
+
 for (const run of [
   first, reappliedComment, samePhraseDifferentScope, legacyRuleRun,
   calibration, reappliedHide, disabled, trGameExplicitlyDisabledAtV2, oldReddit,
+  noGrantFallback, journalReset,
 ]) {
   const unexpected = run.jsdomErrors.filter((error) => !/navigation/i.test(error.message));
   assert.deepEqual(unexpected, []);

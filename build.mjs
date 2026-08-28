@@ -23,6 +23,7 @@ const banner = `// ==UserScript==
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_registerMenuCommand
+// @sandbox      DOM
 // @run-at       document-idle
 // ==/UserScript==`;
 
