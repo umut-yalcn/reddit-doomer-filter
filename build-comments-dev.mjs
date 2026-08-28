@@ -7,7 +7,7 @@ const sourcePath = join(ROOT, 'dist', 'reddit-doom-filter.user.js');
 const outputPath = join(ROOT, 'dist', 'reddit-doom-filter.comments-dev.user.js');
 const packageJson = JSON.parse(await readFile(join(ROOT, 'package.json'), 'utf8'));
 const repositoryUrl = String(packageJson.homepage).replace(/\/$/, '');
-const developmentVersion = '0.4.0-hardened-dev';
+const developmentVersion = '0.4.1-expanded-dev';
 const source = await readFile(sourcePath, 'utf8');
 const output = source
   .replace('// @name         Reddit Karamsarlık Filtresi', '// @name         Reddit Karamsarlık Filtresi Yorum DEV')

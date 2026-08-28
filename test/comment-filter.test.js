@@ -270,6 +270,30 @@ test('r/TrGameDeveloper post ve yorumları varsayılan hedef kapsamındadır', (
   assert.equal(dom.window.document.querySelector('[slot="comment"]').style.display, 'none');
 });
 
+test('sekiz yeni subreddit post ve yorumları varsayılan hedef kapsamındadır', () => {
+  const subreddits = [
+    'UniversityTR', 'teknoloji', 'Kariyer', 'acikkaynak',
+    'AndroidTurkiye', 'LinuxTurkey', 'ERPTurkiye', 'AppDevTR',
+  ];
+  const markup = subreddits.map((subreddit, index) => `
+    <shreddit-post post-id="new-post-${index}" post-title="Yazılım sektörü bitti" subreddit-prefixed-name="r/${subreddit}"></shreddit-post>
+    <shreddit-comment thingid="new-comment-${index}" permalink="/r/${subreddit}/comments/post/comment/${index}/">
+      <div slot="comment">Yazılım sektörü bitti.</div>
+    </shreddit-comment>
+  `).join('');
+  const dom = new JSDOM(`<!doctype html><html><head></head><body>${markup}</body></html>`, {
+    url: 'https://www.reddit.com/r/UniversityTR/comments/post/example/',
+  });
+  new PostFilter({ doc: dom.window.document }).processTree(dom.window.document);
+
+  for (const post of dom.window.document.querySelectorAll('shreddit-post')) {
+    assert.equal(post.style.display, 'none');
+  }
+  for (const comment of dom.window.document.querySelectorAll('shreddit-comment')) {
+    assert.equal(comment.querySelector('[slot="comment"]').style.display, 'none');
+  }
+});
+
 test('kişisel göster ve gizle kuralları otomatik yorum kararının üzerine uygulanır', () => {
   const shown = new JSDOM(newCommentMarkup({ body: 'Yazılım bitti.' }), {
     url: 'https://www.reddit.com/r/CodingTR/comments/post/example/',

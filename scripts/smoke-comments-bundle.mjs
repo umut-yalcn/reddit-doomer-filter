@@ -6,6 +6,10 @@ import { JSDOM, VirtualConsole } from 'jsdom';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const userscript = await readFile(join(ROOT, 'dist', 'reddit-doom-filter.comments-dev.user.js'), 'utf8');
+const NEW_SUBREDDITS = [
+  'universitytr', 'teknoloji', 'kariyer', 'acikkaynak',
+  'androidturkiye', 'linuxturkey', 'erpturkiye', 'appdevtr',
+];
 
 function boot(markup, {
   url = 'https://www.reddit.com/r/CodingTR/comments/post/example/',
@@ -72,11 +76,15 @@ assert.ok(first.menus.some((menu) => menu.label === 'Yorum filtresini kapat'));
 assert.ok(first.menus.some((menu) => menu.label === 'Kişisel kuralları kapat'));
 assert.ok(first.menus.some((menu) => menu.label === 'Kişisel kuralları içe aktar'));
 assert.ok(first.menus.some((menu) => menu.label === '✓ r/trgamedeveloper filtresi'));
+for (const subreddit of NEW_SUBREDDITS) {
+  assert.ok(first.menus.some((menu) => menu.label === `✓ r/${subreddit} filtresi`));
+}
 const migratedSettings = JSON.parse(first.storage.get('rdf_settings_v1'));
-assert.equal(migratedSettings.settingsSchemaVersion, 3);
+assert.equal(migratedSettings.settingsSchemaVersion, 4);
 assert.equal(migratedSettings.filterComments, true);
 assert.equal(migratedSettings.personalOverridesEnabled, true);
 assert.ok(migratedSettings.subreddits.includes('trgamedeveloper'));
+for (const subreddit of NEW_SUBREDDITS) assert.ok(migratedSettings.subreddits.includes(subreddit));
 
 const temporaryShowComment = [...parent.querySelectorAll('.rdf-bar--comment button')]
   .find((button) => button.textContent === 'Göster');
@@ -161,7 +169,18 @@ const trGameExplicitlyDisabledAtV2 = boot(`<!doctype html><html><head></head><bo
 ]) });
 assert.equal(trGameExplicitlyDisabledAtV2.dom.window.document.querySelector('shreddit-post').style.display, '');
 assert.ok(trGameExplicitlyDisabledAtV2.menus.some((menu) => menu.label === '○ r/trgamedeveloper filtresi'));
-assert.equal(JSON.parse(trGameExplicitlyDisabledAtV2.storage.get('rdf_settings_v1')).settingsSchemaVersion, 3);
+assert.equal(JSON.parse(trGameExplicitlyDisabledAtV2.storage.get('rdf_settings_v1')).settingsSchemaVersion, 4);
+
+const appDevExplicitlyDisabledAtV4 = boot(`<!doctype html><html><head></head><body>
+  <shreddit-post post-id="appdev-disabled" post-title="Yazılım sektörü bitti" subreddit-prefixed-name="r/AppDevTR"></shreddit-post>
+</body></html>`, { initialStorage: new Map([
+  ['rdf_settings_v1', JSON.stringify({
+    settingsSchemaVersion: 4,
+    subreddits: ['codingtr', 'turkdev', 'engineeringtr', 'trgamedeveloper'],
+  })],
+]) });
+assert.equal(appDevExplicitlyDisabledAtV4.dom.window.document.querySelector('shreddit-post').style.display, '');
+assert.ok(appDevExplicitlyDisabledAtV4.menus.some((menu) => menu.label === '○ r/appdevtr filtresi'));
 
 const oldReddit = boot(`<!doctype html><html><head></head><body>
   <div class="thing comment" data-fullname="t1_old">
@@ -191,7 +210,7 @@ assert.ok(journalReset.alerts.includes('Yerel karar günlüğü silindi.'));
 for (const run of [
   first, reappliedComment, samePhraseDifferentScope, legacyRuleRun,
   calibration, reappliedHide, disabled, trGameExplicitlyDisabledAtV2, oldReddit,
-  noGrantFallback, journalReset,
+  appDevExplicitlyDisabledAtV4, noGrantFallback, journalReset,
 ]) {
   const unexpected = run.jsdomErrors.filter((error) => !/navigation/i.test(error.message));
   assert.deepEqual(unexpected, []);

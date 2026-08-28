@@ -22,7 +22,20 @@ export const DEFAULT_SETTINGS = {
   protectQuestions: false,
   debug: false,
   calibrationMode: false,
-  subreddits: ['codingtr', 'turkdev', 'engineeringtr', 'trgamedeveloper'],
+  subreddits: [
+    'codingtr',
+    'turkdev',
+    'engineeringtr',
+    'trgamedeveloper',
+    'universitytr',
+    'teknoloji',
+    'kariyer',
+    'acikkaynak',
+    'androidturkiye',
+    'linuxturkey',
+    'erpturkiye',
+    'appdevtr',
+  ],
 };
 
 function injectStyle(doc) {

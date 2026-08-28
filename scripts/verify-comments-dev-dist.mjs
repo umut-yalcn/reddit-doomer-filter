@@ -12,7 +12,7 @@ const development = await readFile(developmentPath, 'utf8');
 const metadata = Object.fromEntries(
   [...development.matchAll(/^\/\/ @(\w+)\s+(.+)$/gm)].map((match) => [match[1], match[2].trim()]),
 );
-const developmentVersion = '0.4.0-hardened-dev';
+const developmentVersion = '0.4.1-expanded-dev';
 
 assert.equal(metadata.name, 'Reddit Karamsarlık Filtresi Yorum DEV');
 assert.equal(metadata.namespace, `${String(packageJson.homepage).replace(/\/$/, '')}/comments-dev`);
@@ -26,6 +26,12 @@ assert.match(development, /Daima göster/);
 assert.match(development, /Benzer yorumları daima göster/);
 assert.match(development, /Kişisel kuralları içe aktar/);
 assert.match(development, /Tekrar gizle/);
+for (const subreddit of [
+  'universitytr', 'teknoloji', 'kariyer', 'acikkaynak',
+  'androidturkiye', 'linuxturkey', 'erpturkiye', 'appdevtr',
+]) {
+  assert.match(development, new RegExp(`['\"]${subreddit}['\"]`));
+}
 assert.doesNotMatch(development, /__redditDoomFilter/);
 assert.doesNotMatch(development, /localStorage\.(?:getItem|setItem)/);
 assert.notEqual(development, production);

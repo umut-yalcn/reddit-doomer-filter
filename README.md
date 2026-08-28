@@ -10,6 +10,14 @@ Hedef topluluklar:
 - r/TurkDev
 - r/EngineeringTR
 - r/TrGameDeveloper
+- r/UniversityTR
+- r/teknoloji
+- r/Kariyer
+- r/acikkaynak
+- r/AndroidTurkiye
+- r/LinuxTurkey
+- r/ERPTurkiye
+- r/AppDevTR
 
 ## Davranış
 
@@ -44,7 +52,7 @@ Userscript menüsünden:
 - Yorum filtresini bağımsız açıp kapatabilirsiniz.
 - Kişisel kuralları açıp kapatabilir, silebilir, indirebilir, içe aktarabilir veya sıfırlayabilirsiniz.
 - Yerel karar günlüğünü JSON olarak indirebilir veya tamamen sıfırlayabilirsiniz.
-- Dört subreddit filtresini ayrı ayrı açıp kapatabilirsiniz.
+- On iki subreddit filtresini ayrı ayrı açıp kapatabilirsiniz.
 
 ## Kalibrasyon ve geri bildirim
 

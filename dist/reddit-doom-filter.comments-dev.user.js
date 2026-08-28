@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Reddit Karamsarlık Filtresi Yorum DEV
 // @namespace    https://github.com/umut-yalcn/reddit-new-filter/comments-dev
-// @version      0.4.0-hardened-dev
+// @version      0.4.1-expanded-dev
 // @description  Post, yorum ve kişisel kurallar için birleşik geliştirme sürümü.
 // @homepageURL  https://github.com/umut-yalcn/reddit-new-filter
 // @supportURL   https://github.com/umut-yalcn/reddit-new-filter/issues
@@ -1081,7 +1081,20 @@
     protectQuestions: false,
     debug: false,
     calibrationMode: false,
-    subreddits: ['codingtr', 'turkdev', 'engineeringtr', 'trgamedeveloper'],
+    subreddits: [
+      'codingtr',
+      'turkdev',
+      'engineeringtr',
+      'trgamedeveloper',
+      'universitytr',
+      'teknoloji',
+      'kariyer',
+      'acikkaynak',
+      'androidturkiye',
+      'linuxturkey',
+      'erpturkiye',
+      'appdevtr',
+    ],
   };
 
   function injectStyle(doc) {
@@ -1641,7 +1654,17 @@
   const SETTINGS_KEY = 'rdf_settings_v1';
   const JOURNAL_KEY = 'rdf_journal_v1';
   const PERSONAL_RULES_KEY = 'rdf_personal_rules_v1';
-  const SETTINGS_SCHEMA_VERSION = 3;
+  const SETTINGS_SCHEMA_VERSION = 4;
+  const V4_SUBREDDITS = [
+    'universitytr',
+    'teknoloji',
+    'kariyer',
+    'acikkaynak',
+    'androidturkiye',
+    'linuxturkey',
+    'erpturkiye',
+    'appdevtr',
+  ];
   const fallbackStorage = new Map();
   let settingsMigrated = false;
 
@@ -1670,6 +1693,11 @@
         : [...DEFAULT_SETTINGS.subreddits];
       if (storedSchemaVersion < 2 && !merged.subreddits.includes('trgamedeveloper')) {
         merged.subreddits.push('trgamedeveloper');
+      }
+      if (storedSchemaVersion < 4) {
+        for (const subreddit of V4_SUBREDDITS) {
+          if (!merged.subreddits.includes(subreddit)) merged.subreddits.push(subreddit);
+        }
       }
       merged.settingsSchemaVersion = SETTINGS_SCHEMA_VERSION;
       merged.filterComments = merged.filterComments !== false;

@@ -5,7 +5,17 @@ import { PersonalRuleStore } from '../core/overrides.js';
 const SETTINGS_KEY = 'rdf_settings_v1';
 const JOURNAL_KEY = 'rdf_journal_v1';
 const PERSONAL_RULES_KEY = 'rdf_personal_rules_v1';
-const SETTINGS_SCHEMA_VERSION = 3;
+const SETTINGS_SCHEMA_VERSION = 4;
+const V4_SUBREDDITS = [
+  'universitytr',
+  'teknoloji',
+  'kariyer',
+  'acikkaynak',
+  'androidturkiye',
+  'linuxturkey',
+  'erpturkiye',
+  'appdevtr',
+];
 const fallbackStorage = new Map();
 let settingsMigrated = false;
 
@@ -34,6 +44,11 @@ function loadSettings() {
       : [...DEFAULT_SETTINGS.subreddits];
     if (storedSchemaVersion < 2 && !merged.subreddits.includes('trgamedeveloper')) {
       merged.subreddits.push('trgamedeveloper');
+    }
+    if (storedSchemaVersion < 4) {
+      for (const subreddit of V4_SUBREDDITS) {
+        if (!merged.subreddits.includes(subreddit)) merged.subreddits.push(subreddit);
+      }
     }
     merged.settingsSchemaVersion = SETTINGS_SCHEMA_VERSION;
     merged.filterComments = merged.filterComments !== false;
