@@ -12,7 +12,7 @@ const development = await readFile(developmentPath, 'utf8');
 const metadata = Object.fromEntries(
   [...development.matchAll(/^\/\/ @(\w+)\s+(.+)$/gm)].map((match) => [match[1], match[2].trim()]),
 );
-const developmentVersion = '0.4.1-expanded-dev';
+const developmentVersion = `${packageJson.version}-dev`;
 
 assert.equal(metadata.name, 'Reddit Karamsarlık Filtresi Yorum DEV');
 assert.equal(metadata.namespace, `${String(packageJson.homepage).replace(/\/$/, '')}/comments-dev`);

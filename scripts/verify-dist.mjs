@@ -17,14 +17,12 @@ const metadata = Object.fromEntries(
   [...before.matchAll(/^\/\/ @(\w+)\s+(.+)$/gm)].map((match) => [match[1], match[2].trim()]),
 );
 const repositoryUrl = String(packageJson.homepage).replace(/\/$/, '');
-const distributionUrl = `${repositoryUrl.replace('https://github.com/', 'https://raw.githubusercontent.com/')}/main/dist/reddit-doom-filter.user.js`;
 const expectedMetadata = {
+  name: 'Reddit Karamsarlık Filtresi',
   namespace: repositoryUrl,
   version: packageJson.version,
   homepageURL: repositoryUrl,
   supportURL: packageJson.bugs.url,
-  updateURL: distributionUrl,
-  downloadURL: distributionUrl,
   sandbox: 'DOM',
 };
 
@@ -32,6 +30,20 @@ for (const [key, expected] of Object.entries(expectedMetadata)) {
   if (metadata[key] !== expected) {
     throw new Error(`Metadata uyuşmazlığı: @${key}=${metadata[key] ?? 'yok'}, beklenen=${expected}`);
   }
+}
+
+if (metadata.updateURL || metadata.downloadURL) {
+  throw new Error('Özel repo kararlı paketi erişilemeyen otomatik güncelleme adresi taşımamalı.');
+}
+
+for (const feature of [
+  /shreddit-comment/,
+  /Yorum filtresini kapat/,
+  /Benzer yorumları daima göster/,
+  /Kişisel kuralları içe aktar/,
+  /Tekrar gizle/,
+]) {
+  if (!feature.test(before)) throw new Error(`Kararlı pakette birleşik özellik eksik: ${feature}`);
 }
 
 execFileSync(process.execPath, [join(ROOT, 'build.mjs')], {

@@ -33,15 +33,19 @@ Varsayılan eşik 4'tür. Soru başlıklarının özel koruması kapalıdır; �
 
 ## Kurulum
 
-Repo özel olduğu sürece GitHub raw bağlantıları tarayıcıdan anonim kuruluma açık değildir. Yerel kurulum için:
+Güncel kararlı sürüm `0.5.0`'dır. Repo özel olduğu sürece GitHub raw bağlantıları tarayıcıdan anonim kuruluma açık değildir. Güvenli yerel kurulum için:
 
 1. Tampermonkey veya Violentmonkey kurun.
-2. `npm ci` ve `npm run build:comments-dev` komutlarını çalıştırın.
-3. Proje kökünde `node scripts/serve.mjs` ile yalnız `127.0.0.1` üzerinde çalışan, proje kökü dışına erişimi reddeden geçici yerel sunucuyu başlatın.
-4. `http://127.0.0.1:4173/dist/reddit-doom-filter.comments-dev.user.js` adresini açın.
+2. `npm ci` ve `npm run build` komutlarını çalıştırın.
+3. Proje kökünde `node scripts/serve.mjs` ile yalnız `127.0.0.1` üzerinde çalışan geçici yerel sunucuyu başlatın. Sunucu yalnız `dist/` ve `test/fixtures/` dosyalarını sunar.
+4. `http://127.0.0.1:4173/dist/reddit-doom-filter.user.js` adresini açın.
 5. Kurulumu onaylayın, yerel sunucuyu kapatın ve Reddit'i yenileyin.
 
-DEV paketi bilerek `@updateURL` ve `@downloadURL` taşımaz; kullanıcı onayı olmadan kurulu betiği değiştirmez. Repo ileride herkese açık yapılırsa üretim dağıtım bağlantısı ayrıca etkinleştirilebilir. Kaynak kod [GitHub reposunda](https://github.com/umut-yalcn/reddit-new-filter), hata ve öneriler [Issues](https://github.com/umut-yalcn/reddit-new-filter/issues) bölümünde tutulur.
+Kararlı ve DEV paketleri özel repo koşulunda `@updateURL` ve `@downloadURL` taşımaz; güncelleme kullanıcı onayıyla yerel kurulum üzerinden yapılır. Repo ileride herkese açık yapılırsa üretim dağıtım bağlantısı ayrıca etkinleştirilebilir. Kaynak kod [GitHub reposunda](https://github.com/umut-yalcn/reddit-new-filter), hata ve öneriler [Issues](https://github.com/umut-yalcn/reddit-new-filter/issues) bölümünde tutulur.
+
+`0.4.1-expanded-dev` kullananlar kişisel kurallarını önce menüden dışa aktarabilir. Kararlı betik kurulduktan sonra kurallar içe aktarılır ve **Reddit Karamsarlık Filtresi Yorum DEV** kapatılır. Karar günlüğü analiz için indirilebilir ancak kararlı betiğe içe aktarılmaz.
+
+İzole geliştirme paketini üretmek isteyenler `npm run build:comments-dev` komutunu ve `http://127.0.0.1:4173/dist/reddit-doom-filter.comments-dev.user.js` adresini kullanabilir.
 
 Userscript menüsünden:
 
@@ -94,7 +98,7 @@ npm run check:comments-dev
 
 `npm run evaluate`, projedeki yüksek güvenli negatif corpus'u tanısal olarak ölçer. Komuta ek dosya yolları verilirse Markdown veya metin corpus'ları da ayrıca değerlendirilebilir. `npm run check` bütün `*.test.js` dosyalarını otomatik bulur; build, userscript sözdizimi, sürüm eşleşmesi ve deterministik çıktı denetimlerini birlikte çalıştırır.
 
-`npm run check:comments-dev`, üretim kontrollerine ek olarak üretim betiğinden ayrı, otomatik güncelleme adresi taşımayan `dist/reddit-doom-filter.comments-dev.user.js` dosyasını; post/yorum kapsamını, eski kural geçişini ve bundle duman testini doğrular.
+`npm run check`, kararlı paketin post/yorum kapsamını, eski kural geçişini ve bundle duman testini de doğrular. `npm run check:comments-dev` bunlara ek olarak üretim betiğinden ayrı, otomatik güncelleme adresi taşımayan `dist/reddit-doom-filter.comments-dev.user.js` dosyasını doğrular.
 
 ## Gizlilik ve kapsam
 
@@ -114,4 +118,4 @@ npm run check:comments-dev
 - Reddit DOM yapısını değiştirdiğinde seçiciler güncellenebilir.
 - Türkçe doğal dil kuralları kesin değildir; geri alma çubuğu bu nedenle korunur.
 - Puan ağırlıkları daha büyük bir normal kontrol grubuyla yeniden kalibre edilmelidir.
-- Özel repo kullanılırken userscript güncellemeleri yerel kurulumla yapılır.
+- Özel repo kullanılırken userscript güncellemeleri kullanıcı onaylı yerel kurulumla yapılır.

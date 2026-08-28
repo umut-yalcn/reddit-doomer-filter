@@ -5,7 +5,8 @@ import { fileURLToPath } from 'node:url';
 import { JSDOM, VirtualConsole } from 'jsdom';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
-const userscript = await readFile(join(ROOT, 'dist', 'reddit-doom-filter.comments-dev.user.js'), 'utf8');
+const bundlePath = process.argv[2] || 'dist/reddit-doom-filter.comments-dev.user.js';
+const userscript = await readFile(join(ROOT, bundlePath), 'utf8');
 const NEW_SUBREDDITS = [
   'universitytr', 'teknoloji', 'kariyer', 'acikkaynak',
   'androidturkiye', 'linuxturkey', 'erpturkiye', 'appdevtr',
@@ -217,4 +218,4 @@ for (const run of [
   run.dom.window.close();
 }
 
-console.log('Birleşik DEV bundle duman testi geçti · post/yorum kapsamı, eski kurallar ve yeniden uygulama doğrulandı');
+console.log(`Birleşik bundle duman testi geçti (${bundlePath}) · post/yorum kapsamı, eski kurallar ve yeniden uygulama doğrulandı`);

@@ -1,6 +1,6 @@
 {
   "name": "reddit-doom-filter",
-  "version": "0.2.0",
+  "version": "0.5.0",
   "private": true,
   "type": "module",
   "description": "Türkçe Reddit post ve yorumlarında karamsar kariyer söylemlerini yerel olarak gizleyen userscript.",
@@ -24,7 +24,7 @@
     "verify:dist": "node scripts/verify-dist.mjs",
     "verify:comments-dev": "node scripts/verify-comments-dev-dist.mjs",
     "check:comments-dev": "npm run check && npm run build:comments-dev && node --check dist/reddit-doom-filter.comments-dev.user.js && npm run verify:comments-dev && node scripts/smoke-comments-bundle.mjs",
-    "check": "npm test && npm run build && node --check dist/reddit-doom-filter.user.js && npm run verify:dist"
+    "check": "npm test && npm run build && node --check dist/reddit-doom-filter.user.js && npm run verify:dist && node scripts/smoke-comments-bundle.mjs dist/reddit-doom-filter.user.js"
   },
   "devDependencies": {
     "jsdom": "^30.0.1"

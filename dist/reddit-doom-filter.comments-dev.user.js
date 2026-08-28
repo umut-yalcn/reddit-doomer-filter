@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Reddit Karamsarlık Filtresi Yorum DEV
 // @namespace    https://github.com/umut-yalcn/reddit-new-filter/comments-dev
-// @version      0.4.1-expanded-dev
+// @version      0.5.0-dev
 // @description  Post, yorum ve kişisel kurallar için birleşik geliştirme sürümü.
 // @homepageURL  https://github.com/umut-yalcn/reddit-new-filter
 // @supportURL   https://github.com/umut-yalcn/reddit-new-filter/issues
