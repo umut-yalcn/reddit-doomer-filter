@@ -6,6 +6,11 @@ değiştirilmez; düzeltme gerekiyorsa yeni bir yama sürümü hazırlanır.
 
 ## 1. Yerel ön kontrol
 
+GitHub deposunda **Settings → Releases → Enable release immutability** seçeneğinin
+açık olduğunu doğrulayın. GitHub bu korumayı geriye dönük uygulamaz; yalnız ayar
+açıldıktan sonra yayınlanan release'ler değiştirilemez olur. Bu nedenle ayar, yeni
+release taslağı oluşturulmadan önce etkin olmalıdır.
+
 1. Çalışma ağacının temiz olduğunu doğrulayın: `git status --short`.
 2. `package.json` sürümünü ve `CHANGELOG.md` kaydını güncelleyin.
 3. `npm ci` çalıştırın.
