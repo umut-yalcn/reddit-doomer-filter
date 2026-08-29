@@ -1,8 +1,12 @@
 # Reddit Karamsarlık Filtresi
 
 [![CI](https://github.com/umut-yalcn/reddit-new-filter/actions/workflows/ci.yml/badge.svg)](https://github.com/umut-yalcn/reddit-new-filter/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/umut-yalcn/reddit-new-filter)](https://github.com/umut-yalcn/reddit-new-filter/releases/latest)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 Seçili Türkçe teknoloji/mühendislik subredditlerindeki karamsar kariyer postlarını ve yorumlarını tarayıcıda yerel olarak gizleyen userscript.
+
+Bu bağımsız topluluk projesi Reddit tarafından geliştirilmemiş, onaylanmamış veya desteklenmemiştir. Reddit ve subreddit adları ilgili sahiplerine aittir.
 
 Hedef topluluklar:
 
@@ -33,15 +37,23 @@ Varsayılan eşik 4'tür. Soru başlıklarının özel koruması kapalıdır; �
 
 ## Kurulum
 
-Güncel kararlı sürüm `0.5.0`'dır. Repo özel olduğu sürece GitHub raw bağlantıları tarayıcıdan anonim kuruluma açık değildir. Güvenli yerel kurulum için:
+Güncel kararlı sürüm `0.5.1`'dir.
 
 1. Tampermonkey veya Violentmonkey kurun.
-2. `npm ci` ve `npm run build` komutlarını çalıştırın.
-3. Proje kökünde `node scripts/serve.mjs` ile yalnız `127.0.0.1` üzerinde çalışan geçici yerel sunucuyu başlatın. Sunucu yalnız `dist/` ve `test/fixtures/` dosyalarını sunar.
-4. `http://127.0.0.1:4173/dist/reddit-doom-filter.user.js` adresini açın.
-5. Kurulumu onaylayın, yerel sunucuyu kapatın ve Reddit'i yenileyin.
+2. [Kararlı userscript dosyasını açın](https://raw.githubusercontent.com/umut-yalcn/reddit-new-filter/stable/dist/reddit-doom-filter.user.js).
+3. Userscript yöneticisinde kaynak ve izinleri inceleyip kurulumu onaylayın.
+4. Reddit'i yenileyin.
 
-Kararlı ve DEV paketleri özel repo koşulunda `@updateURL` ve `@downloadURL` taşımaz; güncelleme kullanıcı onayıyla yerel kurulum üzerinden yapılır. Repo ileride herkese açık yapılırsa üretim dağıtım bağlantısı ayrıca etkinleştirilebilir. Kaynak kod [GitHub reposunda](https://github.com/umut-yalcn/reddit-new-filter), hata ve öneriler [Issues](https://github.com/umut-yalcn/reddit-new-filter/issues) bölümünde tutulur.
+Kararlı paket yalnız kontrollü `stable` dalındaki aynı dosyadan güncelleme denetimi yapar. Normal `main` geliştirme push'ları kurulu betiğe dağıtılmaz. Güncelleme kaynak kodu kullanıcı betiği yöneticisinde incelenebilir; geliştirme paketi otomatik güncelleme adresi taşımaz. Kaynak kod [GitHub reposunda](https://github.com/umut-yalcn/reddit-new-filter), hata ve öneriler [Issues](https://github.com/umut-yalcn/reddit-new-filter/issues) bölümünde tutulur.
+
+Kaynak koddan yerel kurulum yapmak isteyen geliştiriciler:
+
+1. `npm ci` ve `npm run build` komutlarını çalıştırır.
+2. Proje kökünde `node scripts/serve.mjs` komutunu başlatır.
+3. `http://127.0.0.1:4173/dist/reddit-doom-filter.user.js` adresini açar.
+4. Kurulumdan sonra yerel sunucuyu kapatır.
+
+Yerel sunucu yalnız `127.0.0.1` adresini dinler ve yalnız `dist/` ile `test/fixtures/` ağaçlarındaki izinli dosyaları sunar.
 
 `0.4.1-expanded-dev` kullananlar kişisel kurallarını önce menüden dışa aktarabilir. Kararlı betik kurulduktan sonra kurallar içe aktarılır ve **Reddit Karamsarlık Filtresi Yorum DEV** kapatılır. Karar günlüğü analiz için indirilebilir ancak kararlı betiğe içe aktarılmaz.
 
@@ -69,6 +81,8 @@ Kişisel göster/gizle kuralları da yalnız userscript deposunda tutulur ve 100
 - **Karar günlüğünü indir** komutu kararları, puanları, tetiklenen cümleyi ve kullanıcı geri bildirimini yerel bir JSON dosyasına aktarır.
 
 Kalibrasyon modu varsayılan olarak kapalıdır. Günlük otomatik olarak dışarı gönderilmez; indirme yalnız menü komutu çalıştırıldığında yapılır.
+
+İndirilen karar günlüğü Reddit içerik metinleri, subreddit bilgisi ve zaman damgaları içerebilir. Bu JSON dosyasını paylaşmadan veya bir Issue'a eklemeden önce içeriğini inceleyin ve kişisel ya da üçüncü taraf verilerini temizleyin. Kişisel kural dışa aktarımları da kullanıcının yazdığı ifadeleri içerir.
 
 Geri bildirim değerlendirilen içerik ve kararın imzasına bağlıdır. Post gövdesi veya filtre kararı değişirse eski etiket yeni karara taşınmaz. Günlük yazımları kısa aralıklarla toplu yapılır ve sayfa kapanırken bekleyen kayıt diske aktarılır.
 
@@ -104,6 +118,7 @@ npm run check:comments-dev
 
 - Reddit API veya harici scraping servisi kullanılmaz.
 - Yalnız tarayıcının yüklediği DOM yerel olarak değerlendirilir.
+- Userscript yöneticisi yalnız kararlı sürüm güncellemesini denetlemek için GitHub'daki `stable` dağıtım dosyasına erişebilir; çalışma zamanı Reddit içeriğini GitHub'a göndermez.
 - Betik açık `DOM` sandbox'ında çalışır ve sayfaya global debug nesnesi bırakmaz.
 - Post/yorum metni, tarama geçmişi veya kullanıcı bilgisi dışarı gönderilmez.
 - Kalibrasyon günlüğü yalnız yerel userscript deposunda tutulur ve 500 kayıtla sınırlıdır.
@@ -118,4 +133,4 @@ npm run check:comments-dev
 - Reddit DOM yapısını değiştirdiğinde seçiciler güncellenebilir.
 - Türkçe doğal dil kuralları kesin değildir; geri alma çubuğu bu nedenle korunur.
 - Puan ağırlıkları daha büyük bir normal kontrol grubuyla yeniden kalibre edilmelidir.
-- Özel repo kullanılırken userscript güncellemeleri kullanıcı onaylı yerel kurulumla yapılır.
+- X/Reddit arayüz ve userscript yöneticisi değişiklikleri kurulum akışını etkileyebilir.

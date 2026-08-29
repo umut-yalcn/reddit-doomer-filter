@@ -6,6 +6,7 @@ const ROOT = dirname(fileURLToPath(import.meta.url));
 const OUTPUT = join(ROOT, 'dist', 'reddit-doom-filter.user.js');
 const packageJson = JSON.parse(await readFile(join(ROOT, 'package.json'), 'utf8'));
 const repositoryUrl = String(packageJson.homepage).replace(/\/$/, '');
+const stableUserscriptUrl = 'https://raw.githubusercontent.com/umut-yalcn/reddit-new-filter/stable/dist/reddit-doom-filter.user.js';
 const banner = `// ==UserScript==
 // @name         Reddit Karamsarlık Filtresi
 // @namespace    ${repositoryUrl}
@@ -13,6 +14,8 @@ const banner = `// ==UserScript==
 // @description  Seçili Türk subredditlerinde karamsar kariyer postlarını ve yorumlarını yerel olarak gizler.
 // @homepageURL  ${repositoryUrl}
 // @supportURL   ${packageJson.bugs.url}
+// @updateURL    ${stableUserscriptUrl}
+// @downloadURL  ${stableUserscriptUrl}
 // @match        https://www.reddit.com/*
 // @match        https://old.reddit.com/*
 // @grant        GM_getValue

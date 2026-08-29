@@ -1,5 +1,12 @@
 # Değişiklik günlüğü
 
+## 0.5.1
+
+- Public dağıtım için yalnız kontrollü `stable` dalına bağlı güncelleme kanalı eklendi.
+- README, güvenlik politikası ve katkı rehberi public yayın koşullarına hazırlandı.
+- Dağıtım doğrulaması harici ağ API'leri ve gereksiz userscript izinleri için güçlendirildi.
+- GitHub Actions bağımlılıkları güncel, commit SHA'sına sabit sürümlere taşındı.
+
 ## 0.5.0
 
 - Post ve yorum filtreleme tek kararlı pakette birleştirildi.
