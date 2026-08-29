@@ -39,7 +39,8 @@ Varsayılan eşik 4'tür. Soru başlıklarının özel koruması kapalıdır; �
 
 Güncel kararlı sürüm `0.5.1`'dir.
 
-1. Tampermonkey veya Violentmonkey kurun.
+1. Tampermonkey kurun. Violentmonkey ile temel userscript API'lerinin uyumlu olması
+   beklenir ancak kararlı sürümün elle doğrulanan birincil hedefi Tampermonkey'dir.
 2. [Kararlı userscript dosyasını açın](https://raw.githubusercontent.com/umut-yalcn/reddit-new-filter/stable/dist/reddit-doom-filter.user.js).
 3. Userscript yöneticisinde kaynak ve izinleri inceleyip kurulumu onaylayın.
 4. Reddit'i yenileyin.
@@ -56,6 +57,11 @@ Kaynak koddan yerel kurulum yapmak isteyen geliştiriciler:
 Yerel sunucu yalnız `127.0.0.1` adresini dinler ve yalnız `dist/` ile `test/fixtures/` ağaçlarındaki izinli dosyaları sunar.
 
 `0.4.1-expanded-dev` kullananlar kişisel kurallarını önce menüden dışa aktarabilir. Kararlı betik kurulduktan sonra kurallar içe aktarılır ve **Reddit Karamsarlık Filtresi Yorum DEV** kapatılır. Karar günlüğü analiz için indirilebilir ancak kararlı betiğe içe aktarılmaz.
+
+`0.5.0` ve daha eski sürümlerde kararlı otomatik güncelleme adresi yoktur. Bu
+sürümlerden gelen kullanıcılar `0.5.1` dosyasını yukarıdaki kararlı bağlantıdan bir
+kez elle kurmalıdır. Bundan sonraki sürüm denetimleri kontrollü `stable` kanalı
+üzerinden yapılır.
 
 İzole geliştirme paketini üretmek isteyenler `npm run build:comments-dev` komutunu ve `http://127.0.0.1:4173/dist/reddit-doom-filter.comments-dev.user.js` adresini kullanabilir.
 
@@ -113,6 +119,11 @@ npm run check:comments-dev
 `npm run evaluate`, projedeki yüksek güvenli negatif corpus'u tanısal olarak ölçer. Komuta ek dosya yolları verilirse Markdown veya metin corpus'ları da ayrıca değerlendirilebilir. `npm run check` bütün `*.test.js` dosyalarını otomatik bulur; build, userscript sözdizimi, sürüm eşleşmesi ve deterministik çıktı denetimlerini birlikte çalıştırır.
 
 `npm run check`, kararlı paketin post/yorum kapsamını, eski kural geçişini ve bundle duman testini de doğrular. `npm run check:comments-dev` bunlara ek olarak üretim betiğinden ayrı, otomatik güncelleme adresi taşımayan `dist/reddit-doom-filter.comments-dev.user.js` dosyasını doğrular.
+
+`npm run benchmark:ci`, 1.000 yorum ve azami kişisel kural sayısıyla kaba bir
+performans regresyon sınırı uygular. Bu jsdom tabanlı ölçüm gerçek tarayıcı
+performansının yerine geçmez; yalnız belirgin yavaşlamaların CI'da fark edilmesini
+sağlar.
 
 ## Gizlilik ve kapsam
 

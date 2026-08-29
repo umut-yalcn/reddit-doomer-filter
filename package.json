@@ -21,6 +21,7 @@
     "build": "node build.mjs",
     "build:comments-dev": "npm run build && node build-comments-dev.mjs",
     "benchmark:comments": "node scripts/benchmark-comments.mjs",
+    "benchmark:ci": "node scripts/benchmark-comments.mjs 1000 with-rules --max-average-ms=20",
     "verify:dist": "node scripts/verify-dist.mjs",
     "verify:comments-dev": "node scripts/verify-comments-dev-dist.mjs",
     "check:comments-dev": "npm run check && npm run build:comments-dev && node --check dist/reddit-doom-filter.comments-dev.user.js && npm run verify:comments-dev && node scripts/smoke-comments-bundle.mjs",

@@ -41,6 +41,9 @@ jobs:
       - name: Evaluate reference corpus
         run: npm run evaluate
 
+      - name: Check performance budget
+        run: npm run benchmark:ci
+
       - name: Audit dependencies
         if: matrix.node == '24.15.0'
         run: npm audit --audit-level=high
