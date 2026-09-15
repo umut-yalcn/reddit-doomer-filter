@@ -67,15 +67,6 @@ Güncel kararlı sürüm `0.5.1`'dir.
 
 Kararlı paket yalnız kontrollü `stable` dalındaki aynı dosyadan güncelleme denetimi yapar. Normal `main` geliştirme push'ları kurulu betiğe dağıtılmaz. Güncelleme kaynak kodu kullanıcı betiği yöneticisinde incelenebilir; geliştirme paketi otomatik güncelleme adresi taşımaz. Kaynak kod [GitHub reposunda](https://github.com/umut-yalcn/reddit-new-filter), hata ve öneriler [Issues](https://github.com/umut-yalcn/reddit-new-filter/issues) bölümünde tutulur.
 
-Kaynak koddan yerel kurulum yapmak isteyen geliştiriciler:
-
-1. `npm ci` ve `npm run build` komutlarını çalıştırır.
-2. Proje kökünde `node scripts/serve.mjs` komutunu başlatır.
-3. `http://127.0.0.1:4173/dist/reddit-doom-filter.user.js` adresini açar.
-4. Kurulumdan sonra yerel sunucuyu kapatır.
-
-Yerel sunucu yalnız `127.0.0.1` adresini dinler ve yalnız `dist/` ile `test/fixtures/` ağaçlarındaki izinli dosyaları sunar.
-
 `0.4.1-expanded-dev` kullananlar kişisel kurallarını önce menüden dışa aktarabilir. Kararlı betik kurulduktan sonra kurallar içe aktarılır ve **Reddit Karamsarlık Filtresi Yorum DEV** kapatılır. Karar günlüğü analiz için indirilebilir ancak kararlı betiğe içe aktarılmaz.
 
 `0.5.0` ve daha eski sürümlerde kararlı otomatik güncelleme adresi yoktur. Bu
@@ -83,7 +74,10 @@ sürümlerden gelen kullanıcılar `0.5.1` dosyasını yukarıdaki kararlı bağ
 kez elle kurmalıdır. Bundan sonraki sürüm denetimleri kontrollü `stable` kanalı
 üzerinden yapılır.
 
-İzole geliştirme paketini üretmek isteyenler `npm run build:comments-dev` komutunu ve `http://127.0.0.1:4173/dist/reddit-doom-filter.comments-dev.user.js` adresini kullanabilir.
+İzole geliştirme paketi üretmek isteyenler `npm run build:comments-dev` komutuyla
+`dist/reddit-doom-filter.comments-dev.user.js` dosyasını oluşturup bunu userscript
+yöneticisinde yerel dosya olarak açabilir. Bu geliştirme çıktısı otomatik güncelleme
+adresi taşımaz ve repoda takip edilmez.
 
 Userscript menüsünden:
 
