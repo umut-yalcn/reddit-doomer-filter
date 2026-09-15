@@ -61,57 +61,62 @@ Yorumlarda benzer bir arayüz bulunur. **Benzer yorumları daima göster** seçe
 
 Güncel kararlı sürüm `0.5.2`'dir.
 
-1. Tampermonkey kurun. Violentmonkey ile temel userscript API'lerinin uyumlu olması
-   beklenir ancak kararlı sürümün elle doğrulanan birincil hedefi Tampermonkey'dir.
+1. Tampermonkey’yi kurun.
 2. [Kararlı userscript dosyasını açın](https://raw.githubusercontent.com/umut-yalcn/reddit-doomer-filter/stable/dist/reddit-doom-filter.user.js).
-3. Userscript yöneticisinde kaynak ve izinleri inceleyip kurulumu onaylayın.
-4. Reddit'i yenileyin.
+3. İzinleri inceleyip kurulumu onaylayın.
+4. Reddit sayfasını yenileyin.
 
-Kararlı paket yalnız kontrollü `stable` dalındaki aynı dosyadan güncelleme denetimi yapar. Normal `main` geliştirme push'ları kurulu betiğe dağıtılmaz. Güncelleme kaynak kodu kullanıcı betiği yöneticisinde incelenebilir; geliştirme paketi otomatik güncelleme adresi taşımaz. Kaynak kod [GitHub reposunda](https://github.com/umut-yalcn/reddit-doomer-filter), hata ve öneriler [Issues](https://github.com/umut-yalcn/reddit-doomer-filter/issues) bölümünde tutulur.
+Kararlı betik yalnızca `stable` dalından güncellenir. `main` dalındaki geliştirme
+değişiklikleri otomatik olarak dağıtılmaz.
 
-`0.4.1-expanded-dev` kullananlar kişisel kurallarını önce menüden dışa aktarabilir. Kararlı betik kurulduktan sonra kurallar içe aktarılır ve **Reddit Karamsarlık Filtresi Yorum DEV** kapatılır. Karar günlüğü analiz için indirilebilir ancak kararlı betiğe içe aktarılmaz.
+Eski `0.4.1-expanded-dev` sürümünü kullanıyorsanız, kişisel kurallarınızı önce
+dışa aktarın. Kararlı sürümü kurduktan sonra kuralları içe aktarabilir ve DEV
+sürümünü kapatabilirsiniz. Karar günlüğü analiz için indirilebilir ancak kararlı
+sürüme içe aktarılmaz.
 
-`0.5.0` ve daha eski sürümlerde kararlı otomatik güncelleme adresi yoktur. Bu
-sürümlerden gelen kullanıcılar `0.5.2` dosyasını yukarıdaki kararlı bağlantıdan bir
-kez elle kurmalıdır. Bundan sonraki sürüm denetimleri kontrollü `stable` kanalı
-üzerinden yapılır.
+Geliştirme sürümü oluşturmak için:
 
-İzole geliştirme paketi üretmek isteyenler `npm run build:comments-dev` komutuyla
-`dist/reddit-doom-filter.comments-dev.user.js` dosyasını oluşturup bunu userscript
-yöneticisinde yerel dosya olarak açabilir. Bu geliştirme çıktısı otomatik güncelleme
-adresi taşımaz ve repoda takip edilmez.
+```bash
+npm run build:comments-dev
+```
+
+Oluşturulan dosya `dist/reddit-doom-filter.comments-dev.user.js` konumunda bulunur.
+Bu dosyada otomatik güncelleme adresi yoktur ve dosya repoda takip edilmez.
 
 Userscript menüsünden:
 
 - Filtreyi açıp kapatabilirsiniz.
-- Soru başlıklarını koruma seçeneğini değiştirebilirsiniz.
-- Debug gerekçelerini açabilirsiniz.
-- Kalibrasyon düğmelerini açabilirsiniz.
+- Soru koruması, debug ve kalibrasyon modlarını değiştirebilirsiniz.
 - Yorum filtresini bağımsız açıp kapatabilirsiniz.
-- Otomatik hesap algılanamazsa kendi Reddit kullanıcı adınızı yerel olarak ayarlayabilirsiniz.
-- Kişisel kuralları açıp kapatabilir, silebilir, indirebilir, içe aktarabilir veya sıfırlayabilirsiniz.
-- Yerel karar günlüğünü JSON olarak indirebilir veya tamamen sıfırlayabilirsiniz.
-- On iki subreddit filtresini ayrı ayrı açıp kapatabilirsiniz.
+- Reddit kullanıcı adınızı ayarlayabilirsiniz.
+- Kişisel kuralları ve karar günlüğünü yönetebilirsiniz.
+- Her subreddit filtresini ayrı ayrı açıp kapatabilirsiniz.
 
 ## Kalibrasyon ve geri bildirim
 
-Filtre, hedef subredditlerde değerlendirdiği en fazla 500 benzersiz post/yorum kararını yalnız tarayıcıdaki userscript deposunda saklar. Aynı Reddit içeriği tekrar işlendiğinde yeni kayıt oluşturmak yerine mevcut kaydın görülme sayısı güncellenir. Elle etiketlenmiş kayıtlar sınır uygulanırken etiketsiz kayıtlardan önce korunur.
+Filtre en fazla 500 post/yorum kararını yalnızca tarayıcıda saklar. Aynı içerik
+tekrar işlendiğinde yeni kayıt yerine mevcut kayıt güncellenir.
 
-Kişisel göster/gizle kuralları da yalnız userscript deposunda tutulur ve 100 kayıtla sınırlıdır. İndirilen kural JSON dosyaları başka geliştirme sürümüne içe aktarılabilir. Eski kapsam bilgisi olmayan kurallar geriye uyumluluk için yalnız post kuralı kabul edilir.
+Kişisel göster/gizle kuralları en fazla 100 kayıtla sınırlıdır ve yalnızca yerel
+userscript deposunda tutulur.
 
-- Gizlenen post ve yorumlarda **Yanlış gizlendi** düğmesi yanlış pozitif etiketi kaydeder ve içeriği geri getirir.
-- Userscript menüsünden kalibrasyon modu açılırsa görünür bırakılan post ve yorumlarda **Gizlenmeliydi** düğmesi belirir.
-- **Karar günlüğünü indir** komutu kararları, puanları, tetiklenen cümleyi ve kullanıcı geri bildirimini yerel bir JSON dosyasına aktarır.
+Gizlenen içeriklerde:
 
-Kalibrasyon modu varsayılan olarak kapalıdır. Günlük otomatik olarak dışarı gönderilmez; indirme yalnız menü komutu çalıştırıldığında yapılır.
+- **Yanlış gizlendi** içeriği geri getirir ve geri bildirim kaydeder.
+- Kalibrasyon modunda **Gizlenmeliydi** seçeneği kullanılabilir.
+- **Karar günlüğünü indir** kararları yerel JSON dosyasına aktarır.
 
-İndirilen karar günlüğü Reddit içerik metinleri, subreddit bilgisi ve zaman damgaları içerebilir. Bu JSON dosyasını paylaşmadan veya bir Issue'a eklemeden önce içeriğini inceleyin ve kişisel ya da üçüncü taraf verilerini temizleyin. Kişisel kural dışa aktarımları da kullanıcının yazdığı ifadeleri içerir.
+İndirilen günlük; Reddit metni, subreddit bilgisi, zaman damgası ve kullanıcı geri
+bildirimi içerebilir. Paylaşmadan önce dosyayı kontrol edip kişisel veya üçüncü
+taraf bilgilerini temizleyin.
 
-Geri bildirim değerlendirilen içerik ve kararın imzasına bağlıdır. Post gövdesi veya filtre kararı değişirse eski etiket yeni karara taşınmaz. Günlük yazımları kısa aralıklarla toplu yapılır ve sayfa kapanırken bekleyen kayıt diske aktarılır.
+Geri bildirim içeriğin ve kararın imzasına bağlıdır. İçerik veya karar değişirse
+eski etiket yeni karara aktarılmaz. Kayıtlar kısa aralıklarla toplu yazılır.
 
 ## Geliştirme
 
-Geliştirme ve test için Node.js `22.22.2`, `24.15.0` veya bunların aynı ana sürümdeki daha yeni yamaları; alternatif olarak Node.js `26+` gerekir. Derlenmiş userscriptin çalışması için Node.js gerekmez.
+Kaynak kodu test etmek için Node.js `22.22.2`, `24.15.0` veya `26+` gerekir.
+Hazır userscript’i çalıştırmak için Node.js gerekmez.
 
 ```bash
 npm install
@@ -120,46 +125,37 @@ npm run evaluate
 npm run build
 npm run check
 npm run check:comments-dev
+npm run benchmark:ci
 ```
 
-- `core/normalize.js`: Türkçe ve sansürlü yazım normalizasyonu.
-- `core/clauses.js`: cümle/cümlecik ayrımı.
-- `core/scorer.js`: DOM'dan bağımsız puan ve karşıt anlatım motoru.
-- `core/content-dom.js`: yeni ve old Reddit post/yorum çıkarımı.
-- `core/filter.js`: dinamik post/yorum izleme, güvenli gizleme ve geri alma.
-- `core/overrides.js`: post/yorum kapsamlı ve en fazla 100 yerel kişisel kural.
-- `core/journal.js`: yerel, sınırlı ve geri bildirimli karar günlüğü.
-- `corpus/negative-examples.js`: kullanıcıdan alınmış yüksek güvenli negatif örnekler.
+- `core/`: normalizasyon, puanlama, DOM çıkarımı, filtreleme, kurallar ve günlük.
+- `corpus/`: yüksek güvenli negatif örnekler.
 - `userscript/main.js`: ayarlar ve userscript başlangıcı.
-- `test/`: pozitif, karşıt, DOM ve dinamik feed regresyonları.
+- `test/`: birim, DOM ve dinamik feed testleri.
+- `dist/`: kurulabilir üretim userscript’i.
 
-`npm run evaluate`, projedeki yüksek güvenli negatif corpus'u tanısal olarak ölçer. Komuta ek dosya yolları verilirse Markdown veya metin corpus'ları da ayrıca değerlendirilebilir. `npm run check` bütün `*.test.js` dosyalarını otomatik bulur; build, userscript sözdizimi, sürüm eşleşmesi ve deterministik çıktı denetimlerini birlikte çalıştırır.
+`npm run evaluate` örnek corpus’u ölçer. `npm run check` test, build, sözdizimi,
+sürüm ve dist doğrulamalarını çalıştırır. `npm run benchmark:ci` performans
+gerilemelerini kontrol eder.
 
-`npm run check`, kararlı paketin post/yorum kapsamını, eski kural geçişini ve bundle duman testini de doğrular. `npm run check:comments-dev` bunlara ek olarak üretim betiğinden ayrı, otomatik güncelleme adresi taşımayan `dist/reddit-doom-filter.comments-dev.user.js` dosyasını doğrular.
-
-`npm run benchmark:ci`, 1.000 yorum ve azami kişisel kural sayısıyla kaba bir
-performans regresyon sınırı uygular. Bu jsdom tabanlı ölçüm gerçek tarayıcı
-performansının yerine geçmez; yalnız belirgin yavaşlamaların CI'da fark edilmesini
-sağlar.
+`npm run check:comments-dev`, üretim betiğinden ayrı geliştirme paketini de
+doğrular. Benchmark sonucu gerçek tarayıcı performansının yerine geçmez; yalnızca
+belirgin yavaşlamaları yakalamaya yarar.
 
 ## Gizlilik ve kapsam
 
 - Reddit API veya harici scraping servisi kullanılmaz.
-- Yalnız tarayıcının yüklediği DOM yerel olarak değerlendirilir.
-- Userscript yöneticisi yalnız kararlı sürüm güncellemesini denetlemek için GitHub'daki `stable` dağıtım dosyasına erişebilir; çalışma zamanı Reddit içeriğini GitHub'a göndermez.
-- Betik açık `DOM` sandbox'ında çalışır ve sayfaya global debug nesnesi bırakmaz.
-- Post/yorum metni, tarama geçmişi veya kullanıcı bilgisi dışarı gönderilmez.
-- İsteğe bağlı elle girilen Reddit kullanıcı adı yalnız kendi içeriklerini muaf tutmak için userscript deposunda saklanır.
-- Kalibrasyon günlüğü yalnız yerel userscript deposunda tutulur ve 500 kayıtla sınırlıdır.
-- Kişisel kurallar yalnız yerel userscript deposunda tutulur ve 100 kayıtla sınırlıdır.
-- Userscript depolama API'si kullanılamazsa Reddit origin depolamasına geçilmez; veriler yalnız o çalıştırma için bellekte tutulur.
-- Çok büyük ilk DOM taramaları 50 içeriklik parçalara bölünür; tek içerikten puanlanan metin uzunluğu ayrıca sınırlandırılır.
-- Reddit hesabında gerçek engelleme, silme veya moderasyon yapılmaz.
-- İngilizce dil desteği bu sürümün kapsamında değildir.
+- Reddit DOM’u tarayıcıda yerel olarak değerlendirilir.
+- Yalnızca güncelleme denetimi için GitHub’daki `stable` dosyasına erişilir.
+- Çalışma zamanı Reddit içeriği, kullanıcı bilgisi veya tarama geçmişi dışarı gönderilmez.
+- Kullanıcı adı, karar günlüğü ve kişisel kurallar yalnızca yerel depoda tutulur.
+- Depolama API’si kullanılamazsa veriler yalnızca o çalıştırma sırasında bellekte tutulur.
+- Betik Reddit hesabında engelleme, silme veya moderasyon işlemi yapmaz.
+- Bu sürüm yalnızca Türkçe içerik için tasarlanmıştır.
 
 ## Bilinen sınırlar
 
-- Reddit DOM yapısını değiştirdiğinde seçiciler güncellenebilir.
-- Türkçe doğal dil kuralları kesin değildir; geri alma çubuğu bu nedenle korunur.
-- Puan ağırlıkları daha büyük bir normal kontrol grubuyla yeniden kalibre edilmelidir.
-- X/Reddit arayüz ve userscript yöneticisi değişiklikleri kurulum akışını etkileyebilir.
+- Reddit DOM yapısı değişirse seçicilerin güncellenmesi gerekebilir.
+- Türkçe doğal dil kuralları her bağlamı kesin olarak anlayamaz.
+- Puan ağırlıkları daha geniş bir kontrol grubuyla yeniden kalibre edilebilir.
+- Reddit veya userscript yöneticisi değişiklikleri kurulum akışını etkileyebilir.
