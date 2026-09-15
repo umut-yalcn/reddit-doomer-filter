@@ -17,7 +17,7 @@ const metadata = Object.fromEntries(
   [...before.matchAll(/^\/\/ @(\w+)\s+(.+)$/gm)].map((match) => [match[1], match[2].trim()]),
 );
 const repositoryUrl = String(packageJson.homepage).replace(/\/$/, '');
-const stableUserscriptUrl = 'https://raw.githubusercontent.com/umut-yalcn/reddit-new-filter/stable/dist/reddit-doom-filter.user.js';
+const stableUserscriptUrl = 'https://raw.githubusercontent.com/umut-yalcn/reddit-doomer-filter/stable/dist/reddit-doom-filter.user.js';
 const expectedMetadata = {
   name: 'Reddit Karamsarlık Filtresi',
   namespace: repositoryUrl,

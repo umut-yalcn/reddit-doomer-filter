@@ -4,13 +4,13 @@
   "private": true,
   "type": "module",
   "description": "Türkçe Reddit post ve yorumlarında karamsar kariyer söylemlerini yerel olarak gizleyen userscript.",
-  "homepage": "https://github.com/umut-yalcn/reddit-new-filter",
+  "homepage": "https://github.com/umut-yalcn/reddit-doomer-filter",
   "repository": {
     "type": "git",
-    "url": "https://github.com/umut-yalcn/reddit-new-filter.git"
+    "url": "https://github.com/umut-yalcn/reddit-doomer-filter.git"
   },
   "bugs": {
-    "url": "https://github.com/umut-yalcn/reddit-new-filter/issues"
+    "url": "https://github.com/umut-yalcn/reddit-doomer-filter/issues"
   },
   "engines": {
     "node": "^22.22.2 || ^24.15.0 || >=26.0.0"

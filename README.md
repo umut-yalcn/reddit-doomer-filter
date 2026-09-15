@@ -1,6 +1,6 @@
 # Reddit Doomer Filtresi
 
-[![CI](https://github.com/umut-yalcn/reddit-new-filter/actions/workflows/ci.yml/badge.svg)](https://github.com/umut-yalcn/reddit-new-filter/actions/workflows/ci.yml)
+[![CI](https://github.com/umut-yalcn/reddit-doomer-filter/actions/workflows/ci.yml/badge.svg)](https://github.com/umut-yalcn/reddit-doomer-filter/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 Türkçe mühendislik subredditlerindeki doomer postlarını ve yorumlarını tarayıcıda gizleyen userscript.
@@ -63,11 +63,11 @@ Güncel kararlı sürüm `0.5.2`'dir.
 
 1. Tampermonkey kurun. Violentmonkey ile temel userscript API'lerinin uyumlu olması
    beklenir ancak kararlı sürümün elle doğrulanan birincil hedefi Tampermonkey'dir.
-2. [Kararlı userscript dosyasını açın](https://raw.githubusercontent.com/umut-yalcn/reddit-new-filter/stable/dist/reddit-doom-filter.user.js).
+2. [Kararlı userscript dosyasını açın](https://raw.githubusercontent.com/umut-yalcn/reddit-doomer-filter/stable/dist/reddit-doom-filter.user.js).
 3. Userscript yöneticisinde kaynak ve izinleri inceleyip kurulumu onaylayın.
 4. Reddit'i yenileyin.
 
-Kararlı paket yalnız kontrollü `stable` dalındaki aynı dosyadan güncelleme denetimi yapar. Normal `main` geliştirme push'ları kurulu betiğe dağıtılmaz. Güncelleme kaynak kodu kullanıcı betiği yöneticisinde incelenebilir; geliştirme paketi otomatik güncelleme adresi taşımaz. Kaynak kod [GitHub reposunda](https://github.com/umut-yalcn/reddit-new-filter), hata ve öneriler [Issues](https://github.com/umut-yalcn/reddit-new-filter/issues) bölümünde tutulur.
+Kararlı paket yalnız kontrollü `stable` dalındaki aynı dosyadan güncelleme denetimi yapar. Normal `main` geliştirme push'ları kurulu betiğe dağıtılmaz. Güncelleme kaynak kodu kullanıcı betiği yöneticisinde incelenebilir; geliştirme paketi otomatik güncelleme adresi taşımaz. Kaynak kod [GitHub reposunda](https://github.com/umut-yalcn/reddit-doomer-filter), hata ve öneriler [Issues](https://github.com/umut-yalcn/reddit-doomer-filter/issues) bölümünde tutulur.
 
 `0.4.1-expanded-dev` kullananlar kişisel kurallarını önce menüden dışa aktarabilir. Kararlı betik kurulduktan sonra kurallar içe aktarılır ve **Reddit Karamsarlık Filtresi Yorum DEV** kapatılır. Karar günlüğü analiz için indirilebilir ancak kararlı betiğe içe aktarılmaz.
 
