@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.5.2
+
 - Oturumdaki kullanıcının kendi post ve yorumları puanlama, gizleme ve karar günlüğünden muaf tutuldu.
 - Modern Reddit ve old Reddit için yazar/oturum hesabı çıkarımı ile isteğe bağlı yerel kullanıcı adı yedeği eklendi.
 

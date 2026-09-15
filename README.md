@@ -56,7 +56,7 @@ Yorumlarda benzer bir arayüz bulunur. **Benzer yorumları daima göster** seçe
 
 ## Kurulum
 
-Güncel kararlı sürüm `0.5.1`'dir.
+Güncel kararlı sürüm `0.5.2`'dir.
 
 1. Tampermonkey kurun. Violentmonkey ile temel userscript API'lerinin uyumlu olması
    beklenir ancak kararlı sürümün elle doğrulanan birincil hedefi Tampermonkey'dir.
@@ -69,7 +69,7 @@ Kararlı paket yalnız kontrollü `stable` dalındaki aynı dosyadan güncelleme
 `0.4.1-expanded-dev` kullananlar kişisel kurallarını önce menüden dışa aktarabilir. Kararlı betik kurulduktan sonra kurallar içe aktarılır ve **Reddit Karamsarlık Filtresi Yorum DEV** kapatılır. Karar günlüğü analiz için indirilebilir ancak kararlı betiğe içe aktarılmaz.
 
 `0.5.0` ve daha eski sürümlerde kararlı otomatik güncelleme adresi yoktur. Bu
-sürümlerden gelen kullanıcılar `0.5.1` dosyasını yukarıdaki kararlı bağlantıdan bir
+sürümlerden gelen kullanıcılar `0.5.2` dosyasını yukarıdaki kararlı bağlantıdan bir
 kez elle kurmalıdır. Bundan sonraki sürüm denetimleri kontrollü `stable` kanalı
 üzerinden yapılır.
 

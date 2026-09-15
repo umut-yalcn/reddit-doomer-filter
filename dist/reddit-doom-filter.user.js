@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Reddit Karamsarlık Filtresi
 // @namespace    https://github.com/umut-yalcn/reddit-new-filter
-// @version      0.5.1
+// @version      0.5.2
 // @description  Seçili Türk subredditlerinde karamsar kariyer postlarını ve yorumlarını yerel olarak gizler.
 // @homepageURL  https://github.com/umut-yalcn/reddit-new-filter
 // @supportURL   https://github.com/umut-yalcn/reddit-new-filter/issues
