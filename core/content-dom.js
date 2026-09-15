@@ -53,6 +53,69 @@ function normalizeSubreddit(value) {
   return String(value ?? '').trim().replace(/^\/?r\//i, '').toLowerCase();
 }
 
+export function normalizeRedditUsername(value) {
+  let username = String(value ?? '').trim();
+  const pathMatch = username.match(/(?:^|\/)\/?(?:u|user)\/([^/?#]+)/i);
+  if (pathMatch?.[1]) {
+    try {
+      username = decodeURIComponent(pathMatch[1]);
+    } catch {
+      username = pathMatch[1];
+    }
+  }
+  return username
+    .replace(/^@/, '')
+    .replace(/^\/?(?:u|user)\//i, '')
+    .replace(/\/$/, '')
+    .trim()
+    .toLowerCase();
+}
+
+function usernameFromProfileLink(link) {
+  return normalizeRedditUsername(link?.getAttribute?.('href'));
+}
+
+export function detectCurrentUsername(doc = document) {
+  const attributeHosts = [
+    doc.querySelector?.('shreddit-app'),
+    doc.querySelector?.('reddit-header-large'),
+    doc.querySelector?.('reddit-header-action-items'),
+  ].filter(Boolean);
+  const attributeNames = ['logged-in-user', 'username', 'user-name', 'account-name'];
+  for (const host of attributeHosts) {
+    for (const attribute of attributeNames) {
+      const username = normalizeRedditUsername(host.getAttribute?.(attribute));
+      if (username) return username;
+    }
+  }
+
+  const oldRedditLink = doc.querySelector?.(
+    '#header-bottom-right .user a[href*="/user/"], #header-bottom-right .user a[href*="/u/"]',
+  );
+  const oldRedditUsername = usernameFromProfileLink(oldRedditLink);
+  if (oldRedditUsername) return oldRedditUsername;
+
+  // Yalnız hesap başlığı içinde arar; içerik yazarlarının profil bağlantıları
+  // oturumdaki kullanıcı sanılmamalıdır.
+  const headerRoots = [
+    doc.querySelector?.('reddit-header-large'),
+    doc.querySelector?.('reddit-header-action-items'),
+    doc.querySelector?.('header'),
+    doc.querySelector?.('[role="banner"]'),
+  ].filter(Boolean);
+  for (const root of headerRoots) {
+    const profileLink = root.querySelector?.(
+      '[data-testid="user-dropdown"] a[href*="/user/"], '
+      + '[data-testid="account-menu"] a[href*="/user/"], '
+      + 'a[aria-label*="profil" i][href*="/user/"], '
+      + 'a[aria-label*="profile" i][href*="/user/"]',
+    );
+    const username = usernameFromProfileLink(profileLink);
+    if (username) return username;
+  }
+  return '';
+}
+
 function subredditFromPath(value) {
   const match = String(value ?? '').match(/(?:^|\/)r\/([^/]+)/i);
   return normalizeSubreddit(match?.[1]);
@@ -90,6 +153,9 @@ export function extractPost(element) {
       ? element.getAttribute('post-id') || element.getAttribute('id') || ''
       : element.getAttribute('data-fullname') || element.getAttribute('id') || '',
     subreddit,
+    author: normalizeRedditUsername(
+      isNew ? element.getAttribute('author') : element.getAttribute('data-author'),
+    ),
     title: limitText(title, MAX_TITLE_LENGTH),
     body: limitText(body, MAX_POST_BODY_LENGTH),
     element,
@@ -121,6 +187,9 @@ export function extractComment(element) {
       ? element.getAttribute('thingid') || element.getAttribute('id') || ''
       : element.getAttribute('data-fullname') || element.getAttribute('id') || '',
     subreddit,
+    author: normalizeRedditUsername(
+      isNew ? element.getAttribute('author') : element.getAttribute('data-author'),
+    ),
     title: '',
     body: limitText(textElement?.textContent, MAX_COMMENT_BODY_LENGTH),
     element,

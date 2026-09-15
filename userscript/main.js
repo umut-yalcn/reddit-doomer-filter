@@ -1,11 +1,12 @@
 import { DEFAULT_SETTINGS, PostFilter } from '../core/filter.js';
 import { DecisionJournal } from '../core/journal.js';
 import { PersonalRuleStore } from '../core/overrides.js';
+import { detectCurrentUsername, normalizeRedditUsername } from '../core/content-dom.js';
 
 const SETTINGS_KEY = 'rdf_settings_v1';
 const JOURNAL_KEY = 'rdf_journal_v1';
 const PERSONAL_RULES_KEY = 'rdf_personal_rules_v1';
-const SETTINGS_SCHEMA_VERSION = 4;
+const SETTINGS_SCHEMA_VERSION = 5;
 const V4_SUBREDDITS = [
   'universitytr',
   'teknoloji',
@@ -53,6 +54,7 @@ function loadSettings() {
     merged.settingsSchemaVersion = SETTINGS_SCHEMA_VERSION;
     merged.filterComments = merged.filterComments !== false;
     merged.personalOverridesEnabled = merged.personalOverridesEnabled !== false;
+    merged.ownUsername = normalizeRedditUsername(merged.ownUsername);
     settingsMigrated = storedSchemaVersion < SETTINGS_SCHEMA_VERSION;
     return merged;
   } catch {
@@ -115,6 +117,7 @@ globalThis.addEventListener?.('pagehide', () => {
 });
 new PostFilter({
   settings,
+  getCurrentUsername: () => settings.ownUsername || detectCurrentUsername(document),
   onDecision: (post, result) => journal.record(post, result),
   onFeedback: (decisionId, feedback) => journal.mark(decisionId, feedback),
   matchPersonalRule: settings.personalOverridesEnabled
@@ -176,6 +179,27 @@ registerMenu(settings.filterComments ? 'Yorum filtresini kapat' : 'Yorum filtres
   saveSettings(settings);
   location.reload();
 });
+
+registerMenu(
+  settings.ownUsername ? 'Kendi Reddit kullanıcı adını değiştir' : 'Kendi Reddit kullanıcı adını ayarla',
+  () => {
+    const detected = detectCurrentUsername(document);
+    const entered = globalThis.prompt?.(
+      'Kendi post ve yorumlarının filtrelenmemesi için Reddit kullanıcı adını yaz. '
+      + 'Otomatik algılamaya dönmek için alanı boş bırak.',
+      settings.ownUsername || detected,
+    );
+    if (entered === null || entered === undefined) return;
+    const normalized = normalizeRedditUsername(entered);
+    if (entered.trim() && !/^[a-z0-9_-]{3,20}$/i.test(normalized)) {
+      globalThis.alert?.('Geçerli bir Reddit kullanıcı adı girilmedi.');
+      return;
+    }
+    settings.ownUsername = normalized;
+    saveSettings(settings);
+    location.reload();
+  },
+);
 
 registerMenu(
   settings.personalOverridesEnabled ? 'Kişisel kuralları kapat' : 'Kişisel kuralları aç',

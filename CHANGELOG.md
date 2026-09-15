@@ -1,5 +1,10 @@
 # Değişiklik günlüğü
 
+## Unreleased
+
+- Oturumdaki kullanıcının kendi post ve yorumları puanlama, gizleme ve karar günlüğünden muaf tutuldu.
+- Modern Reddit ve old Reddit için yazar/oturum hesabı çıkarımı ile isteğe bağlı yerel kullanıcı adı yedeği eklendi.
+
 ## 0.5.1
 
 - Public dağıtım için yalnız kontrollü `stable` dalına bağlı güncelleme kanalı eklendi.

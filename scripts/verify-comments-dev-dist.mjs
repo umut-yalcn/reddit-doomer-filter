@@ -26,6 +26,8 @@ assert.match(development, /Daima göster/);
 assert.match(development, /Benzer yorumları daima göster/);
 assert.match(development, /Kişisel kuralları içe aktar/);
 assert.match(development, /Tekrar gizle/);
+assert.match(development, /Kendi Reddit kullanıcı adını ayarla/);
+assert.match(development, /shown-own/);
 for (const subreddit of [
   'universitytr', 'teknoloji', 'kariyer', 'acikkaynak',
   'androidturkiye', 'linuxturkey', 'erpturkiye', 'appdevtr',

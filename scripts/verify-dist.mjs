@@ -41,6 +41,8 @@ for (const feature of [
   /Benzer yorumları daima göster/,
   /Kişisel kuralları içe aktar/,
   /Tekrar gizle/,
+  /Kendi Reddit kullanıcı adını ayarla/,
+  /shown-own/,
 ]) {
   if (!feature.test(before)) throw new Error(`Kararlı pakette birleşik özellik eksik: ${feature}`);
 }

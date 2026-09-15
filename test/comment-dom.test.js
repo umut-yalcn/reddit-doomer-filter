@@ -9,7 +9,7 @@ import {
 
 test('yeni Reddit yorumunda yalnız kendi metnini çıkarır, alt yanıtı karıştırmaz', () => {
   const dom = new JSDOM(`<!doctype html><body>
-    <shreddit-comment thingid="t1_parent" permalink="/r/CodingTR/comments/post/comment/parent/">
+    <shreddit-comment thingid="t1_parent" author="ParentUser" permalink="/r/CodingTR/comments/post/comment/parent/">
       <details>
         <div slot="commentMeta">parent-user</div>
         <div slot="comment" id="t1_parent-comment-rtjson-content">Yazılım bitti.</div>
@@ -29,6 +29,7 @@ test('yeni Reddit yorumunda yalnız kendi metnini çıkarır, alt yanıtı karı
   const parent = extractComment(comments[0]);
   assert.equal(parent.id, 't1_parent');
   assert.equal(parent.subreddit, 'codingtr');
+  assert.equal(parent.author, 'parentuser');
   assert.equal(parent.body, 'Yazılım bitti.');
   assert.equal(parent.contentElement.id, 't1_parent-comment-rtjson-content');
   assert.equal(parent.actionElements.length, 1);
@@ -37,7 +38,7 @@ test('yeni Reddit yorumunda yalnız kendi metnini çıkarır, alt yanıtı karı
 
 test('old Reddit yorumunda yalnız doğrudan entry metnini çıkarır', () => {
   const dom = new JSDOM(`<!doctype html><body>
-    <div class="thing comment" data-fullname="t1_old_parent">
+    <div class="thing comment" data-fullname="t1_old_parent" data-author="OldParent">
       <div class="entry">
         <div class="usertext-body"><div class="md">CENG boş iş, tıp oku.</div></div>
         <ul class="flat-list buttons"><li>reply</li></ul>
@@ -55,6 +56,7 @@ test('old Reddit yorumunda yalnız doğrudan entry metnini çıkarır', () => {
   const parent = extractComment(comments[0]);
   assert.equal(parent.id, 't1_old_parent');
   assert.equal(parent.subreddit, 'turkdev');
+  assert.equal(parent.author, 'oldparent');
   assert.equal(parent.body, 'CENG boş iş, tıp oku.');
   assert.equal(parent.actionElements.length, 1);
   assert.equal(extractComment(comments[1]).body, 'Katılmıyorum.');

@@ -984,6 +984,69 @@
     return String(value ?? '').trim().replace(/^\/?r\//i, '').toLowerCase();
   }
 
+  function normalizeRedditUsername(value) {
+    let username = String(value ?? '').trim();
+    const pathMatch = username.match(/(?:^|\/)\/?(?:u|user)\/([^/?#]+)/i);
+    if (pathMatch?.[1]) {
+      try {
+        username = decodeURIComponent(pathMatch[1]);
+      } catch {
+        username = pathMatch[1];
+      }
+    }
+    return username
+      .replace(/^@/, '')
+      .replace(/^\/?(?:u|user)\//i, '')
+      .replace(/\/$/, '')
+      .trim()
+      .toLowerCase();
+  }
+
+  function usernameFromProfileLink(link) {
+    return normalizeRedditUsername(link?.getAttribute?.('href'));
+  }
+
+  function detectCurrentUsername(doc = document) {
+    const attributeHosts = [
+      doc.querySelector?.('shreddit-app'),
+      doc.querySelector?.('reddit-header-large'),
+      doc.querySelector?.('reddit-header-action-items'),
+    ].filter(Boolean);
+    const attributeNames = ['logged-in-user', 'username', 'user-name', 'account-name'];
+    for (const host of attributeHosts) {
+      for (const attribute of attributeNames) {
+        const username = normalizeRedditUsername(host.getAttribute?.(attribute));
+        if (username) return username;
+      }
+    }
+
+    const oldRedditLink = doc.querySelector?.(
+      '#header-bottom-right .user a[href*="/user/"], #header-bottom-right .user a[href*="/u/"]',
+    );
+    const oldRedditUsername = usernameFromProfileLink(oldRedditLink);
+    if (oldRedditUsername) return oldRedditUsername;
+
+    // Yalnız hesap başlığı içinde arar; içerik yazarlarının profil bağlantıları
+    // oturumdaki kullanıcı sanılmamalıdır.
+    const headerRoots = [
+      doc.querySelector?.('reddit-header-large'),
+      doc.querySelector?.('reddit-header-action-items'),
+      doc.querySelector?.('header'),
+      doc.querySelector?.('[role="banner"]'),
+    ].filter(Boolean);
+    for (const root of headerRoots) {
+      const profileLink = root.querySelector?.(
+        '[data-testid="user-dropdown"] a[href*="/user/"], '
+        + '[data-testid="account-menu"] a[href*="/user/"], '
+        + 'a[aria-label*="profil" i][href*="/user/"], '
+        + 'a[aria-label*="profile" i][href*="/user/"]',
+      );
+      const username = usernameFromProfileLink(profileLink);
+      if (username) return username;
+    }
+    return '';
+  }
+
   function subredditFromPath(value) {
     const match = String(value ?? '').match(/(?:^|\/)r\/([^/]+)/i);
     return normalizeSubreddit(match?.[1]);
@@ -1021,6 +1084,9 @@
         ? element.getAttribute('post-id') || element.getAttribute('id') || ''
         : element.getAttribute('data-fullname') || element.getAttribute('id') || '',
       subreddit,
+      author: normalizeRedditUsername(
+        isNew ? element.getAttribute('author') : element.getAttribute('data-author'),
+      ),
       title: limitText(title, MAX_TITLE_LENGTH),
       body: limitText(body, MAX_POST_BODY_LENGTH),
       element,
@@ -1052,6 +1118,9 @@
         ? element.getAttribute('thingid') || element.getAttribute('id') || ''
         : element.getAttribute('data-fullname') || element.getAttribute('id') || '',
       subreddit,
+      author: normalizeRedditUsername(
+        isNew ? element.getAttribute('author') : element.getAttribute('data-author'),
+      ),
       title: '',
       body: limitText(textElement?.textContent, MAX_COMMENT_BODY_LENGTH),
       element,
@@ -1079,6 +1148,7 @@
     enabled: true,
     filterComments: true,
     personalOverridesEnabled: true,
+    ownUsername: '',
     threshold: 4,
     protectQuestions: false,
     debug: false,
@@ -1129,7 +1199,9 @@
   }
 
   function signature(content) {
-    return normalizeTurkish(`${content.kind ?? 'post'}|${content.subreddit}|${content.title}|${content.body}`);
+    return normalizeTurkish(
+      `${content.kind ?? 'post'}|${content.subreddit}|${content.author}|${content.title}|${content.body}`,
+    );
   }
 
   class PostFilter {
@@ -1140,6 +1212,7 @@
       onFeedback = null,
       matchPersonalRule = null,
       onCreatePersonalRule = null,
+      getCurrentUsername = null,
     } = {}) {
       this.doc = doc;
       this.settings = { ...DEFAULT_SETTINGS, ...settings };
@@ -1156,10 +1229,13 @@
       this.onFeedback = typeof onFeedback === 'function' ? onFeedback : null;
       this.matchPersonalRule = typeof matchPersonalRule === 'function' ? matchPersonalRule : null;
       this.onCreatePersonalRule = typeof onCreatePersonalRule === 'function' ? onCreatePersonalRule : null;
+      this.getCurrentUsername = typeof getCurrentUsername === 'function' ? getCurrentUsername : null;
+      this.currentUsername = this.readCurrentUsername();
     }
 
     start() {
       this.stopped = false;
+      this.refreshCurrentUsername();
       injectStyle(this.doc);
       const initialItems = this.collectInitialItems();
       const synchronousCount = initialItems.length > INITIAL_SYNC_LIMIT
@@ -1171,6 +1247,7 @@
       const Observer = this.doc.defaultView?.MutationObserver ?? globalThis.MutationObserver;
       if (Observer) {
         this.observer = new Observer((records) => {
+          const identityChanged = this.refreshCurrentUsername();
           for (const record of records) {
             if (record.type === 'childList') {
               this.enqueueNode(record.target);
@@ -1179,6 +1256,7 @@
               this.enqueueNode(record.target);
             }
           }
+          if (identityChanged) this.pending.add(this.doc.body || this.doc.documentElement);
           if (this.pending.size > 0) this.schedule();
         });
         this.observer.observe(this.doc.body || this.doc.documentElement, {
@@ -1198,6 +1276,14 @@
             'slot',
             'data-post-click-location',
             'id',
+            'author',
+            'data-author',
+            'logged-in-user',
+            'username',
+            'user-name',
+            'account-name',
+            'href',
+            'aria-label',
           ],
         });
       }
@@ -1286,6 +1372,35 @@
       }
     }
 
+    readCurrentUsername() {
+      try {
+        return normalizeRedditUsername(
+          this.getCurrentUsername?.() || this.settings.ownUsername,
+        );
+      } catch (error) {
+        console.warn('[Reddit Karamsarlık Filtresi] Oturum hesabı okunamadı:', error);
+        return normalizeRedditUsername(this.settings.ownUsername);
+      }
+    }
+
+    refreshCurrentUsername() {
+      const nextUsername = this.readCurrentUsername();
+      if (nextUsername === this.currentUsername) return false;
+      this.currentUsername = nextUsername;
+      return true;
+    }
+
+    isOwnContent(content) {
+      const author = normalizeRedditUsername(content.author);
+      return Boolean(author && this.currentUsername && author === this.currentUsername);
+    }
+
+    showWithoutScoring(content) {
+      this.clearPresentation(content.element);
+      this.signatures.delete(content.element);
+      content.element.setAttribute(STATE_ATTR, 'shown-own');
+    }
+
     processPost(element) {
       try {
         const post = extractPost(element);
@@ -1293,6 +1408,11 @@
           this.clearPresentation(element);
           this.signatures.delete(element);
           element.setAttribute(STATE_ATTR, 'shown');
+          return;
+        }
+
+        if (this.isOwnContent(post)) {
+          this.showWithoutScoring(post);
           return;
         }
 
@@ -1323,6 +1443,11 @@
           this.clearPresentation(element);
           this.signatures.delete(element);
           element.setAttribute(STATE_ATTR, 'shown');
+          return;
+        }
+
+        if (this.isOwnContent(comment)) {
+          this.showWithoutScoring(comment);
           return;
         }
 
@@ -1656,7 +1781,7 @@
   const SETTINGS_KEY = 'rdf_settings_v1';
   const JOURNAL_KEY = 'rdf_journal_v1';
   const PERSONAL_RULES_KEY = 'rdf_personal_rules_v1';
-  const SETTINGS_SCHEMA_VERSION = 4;
+  const SETTINGS_SCHEMA_VERSION = 5;
   const V4_SUBREDDITS = [
     'universitytr',
     'teknoloji',
@@ -1704,6 +1829,7 @@
       merged.settingsSchemaVersion = SETTINGS_SCHEMA_VERSION;
       merged.filterComments = merged.filterComments !== false;
       merged.personalOverridesEnabled = merged.personalOverridesEnabled !== false;
+      merged.ownUsername = normalizeRedditUsername(merged.ownUsername);
       settingsMigrated = storedSchemaVersion < SETTINGS_SCHEMA_VERSION;
       return merged;
     } catch {
@@ -1766,6 +1892,7 @@
   });
   new PostFilter({
     settings,
+    getCurrentUsername: () => settings.ownUsername || detectCurrentUsername(document),
     onDecision: (post, result) => journal.record(post, result),
     onFeedback: (decisionId, feedback) => journal.mark(decisionId, feedback),
     matchPersonalRule: settings.personalOverridesEnabled
@@ -1827,6 +1954,27 @@
     saveSettings(settings);
     location.reload();
   });
+
+  registerMenu(
+    settings.ownUsername ? 'Kendi Reddit kullanıcı adını değiştir' : 'Kendi Reddit kullanıcı adını ayarla',
+    () => {
+      const detected = detectCurrentUsername(document);
+      const entered = globalThis.prompt?.(
+        'Kendi post ve yorumlarının filtrelenmemesi için Reddit kullanıcı adını yaz. '
+        + 'Otomatik algılamaya dönmek için alanı boş bırak.',
+        settings.ownUsername || detected,
+      );
+      if (entered === null || entered === undefined) return;
+      const normalized = normalizeRedditUsername(entered);
+      if (entered.trim() && !/^[a-z0-9_-]{3,20}$/i.test(normalized)) {
+        globalThis.alert?.('Geçerli bir Reddit kullanıcı adı girilmedi.');
+        return;
+      }
+      settings.ownUsername = normalized;
+      saveSettings(settings);
+      location.reload();
+    },
+  );
 
   registerMenu(
     settings.personalOverridesEnabled ? 'Kişisel kuralları kapat' : 'Kişisel kuralları aç',

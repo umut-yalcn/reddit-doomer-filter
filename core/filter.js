@@ -5,6 +5,7 @@ import {
   findContainingCommentElement,
   findContainingPostElement,
   findPostElements,
+  normalizeRedditUsername,
 } from './content-dom.js';
 import { normalizeTurkish } from './normalize.js';
 import { scorePost } from './scorer.js';
@@ -18,6 +19,7 @@ export const DEFAULT_SETTINGS = {
   enabled: true,
   filterComments: true,
   personalOverridesEnabled: true,
+  ownUsername: '',
   threshold: 4,
   protectQuestions: false,
   debug: false,
@@ -68,7 +70,9 @@ function injectStyle(doc) {
 }
 
 function signature(content) {
-  return normalizeTurkish(`${content.kind ?? 'post'}|${content.subreddit}|${content.title}|${content.body}`);
+  return normalizeTurkish(
+    `${content.kind ?? 'post'}|${content.subreddit}|${content.author}|${content.title}|${content.body}`,
+  );
 }
 
 export class PostFilter {
@@ -79,6 +83,7 @@ export class PostFilter {
     onFeedback = null,
     matchPersonalRule = null,
     onCreatePersonalRule = null,
+    getCurrentUsername = null,
   } = {}) {
     this.doc = doc;
     this.settings = { ...DEFAULT_SETTINGS, ...settings };
@@ -95,10 +100,13 @@ export class PostFilter {
     this.onFeedback = typeof onFeedback === 'function' ? onFeedback : null;
     this.matchPersonalRule = typeof matchPersonalRule === 'function' ? matchPersonalRule : null;
     this.onCreatePersonalRule = typeof onCreatePersonalRule === 'function' ? onCreatePersonalRule : null;
+    this.getCurrentUsername = typeof getCurrentUsername === 'function' ? getCurrentUsername : null;
+    this.currentUsername = this.readCurrentUsername();
   }
 
   start() {
     this.stopped = false;
+    this.refreshCurrentUsername();
     injectStyle(this.doc);
     const initialItems = this.collectInitialItems();
     const synchronousCount = initialItems.length > INITIAL_SYNC_LIMIT
@@ -110,6 +118,7 @@ export class PostFilter {
     const Observer = this.doc.defaultView?.MutationObserver ?? globalThis.MutationObserver;
     if (Observer) {
       this.observer = new Observer((records) => {
+        const identityChanged = this.refreshCurrentUsername();
         for (const record of records) {
           if (record.type === 'childList') {
             this.enqueueNode(record.target);
@@ -118,6 +127,7 @@ export class PostFilter {
             this.enqueueNode(record.target);
           }
         }
+        if (identityChanged) this.pending.add(this.doc.body || this.doc.documentElement);
         if (this.pending.size > 0) this.schedule();
       });
       this.observer.observe(this.doc.body || this.doc.documentElement, {
@@ -137,6 +147,14 @@ export class PostFilter {
           'slot',
           'data-post-click-location',
           'id',
+          'author',
+          'data-author',
+          'logged-in-user',
+          'username',
+          'user-name',
+          'account-name',
+          'href',
+          'aria-label',
         ],
       });
     }
@@ -225,6 +243,35 @@ export class PostFilter {
     }
   }
 
+  readCurrentUsername() {
+    try {
+      return normalizeRedditUsername(
+        this.getCurrentUsername?.() || this.settings.ownUsername,
+      );
+    } catch (error) {
+      console.warn('[Reddit Karamsarlık Filtresi] Oturum hesabı okunamadı:', error);
+      return normalizeRedditUsername(this.settings.ownUsername);
+    }
+  }
+
+  refreshCurrentUsername() {
+    const nextUsername = this.readCurrentUsername();
+    if (nextUsername === this.currentUsername) return false;
+    this.currentUsername = nextUsername;
+    return true;
+  }
+
+  isOwnContent(content) {
+    const author = normalizeRedditUsername(content.author);
+    return Boolean(author && this.currentUsername && author === this.currentUsername);
+  }
+
+  showWithoutScoring(content) {
+    this.clearPresentation(content.element);
+    this.signatures.delete(content.element);
+    content.element.setAttribute(STATE_ATTR, 'shown-own');
+  }
+
   processPost(element) {
     try {
       const post = extractPost(element);
@@ -232,6 +279,11 @@ export class PostFilter {
         this.clearPresentation(element);
         this.signatures.delete(element);
         element.setAttribute(STATE_ATTR, 'shown');
+        return;
+      }
+
+      if (this.isOwnContent(post)) {
+        this.showWithoutScoring(post);
         return;
       }
 
@@ -262,6 +314,11 @@ export class PostFilter {
         this.clearPresentation(element);
         this.signatures.delete(element);
         element.setAttribute(STATE_ATTR, 'shown');
+        return;
+      }
+
+      if (this.isOwnContent(comment)) {
+        this.showWithoutScoring(comment);
         return;
       }
 
