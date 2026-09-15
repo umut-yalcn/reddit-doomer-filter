@@ -1,7 +1,6 @@
 # Reddit Karamsarlık Filtresi
 
 [![CI](https://github.com/umut-yalcn/reddit-new-filter/actions/workflows/ci.yml/badge.svg)](https://github.com/umut-yalcn/reddit-new-filter/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/umut-yalcn/reddit-new-filter)](https://github.com/umut-yalcn/reddit-new-filter/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 Seçili Türkçe teknoloji/mühendislik subredditlerindeki karamsar kariyer postlarını ve yorumlarını tarayıcıda yerel olarak gizleyen userscript.
