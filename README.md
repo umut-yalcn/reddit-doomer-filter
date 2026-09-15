@@ -1,4 +1,4 @@
-# Reddit Doomer Filtresi
+# Reddit Doomer Filter
 
 [![CI](https://github.com/umut-yalcn/reddit-doomer-filter/actions/workflows/ci.yml/badge.svg)](https://github.com/umut-yalcn/reddit-doomer-filter/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
