@@ -9,3 +9,5 @@ credentials*.json
 secrets*.json
 coverage/
 dist/reddit-doom-filter.comments-dev.user.js
+reddit-karamsarlik-kararlari-*.json
+reddit-karamsarlik-kisisel-kurallar-*.json
