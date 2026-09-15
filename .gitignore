@@ -8,3 +8,4 @@ node_modules/
 credentials*.json
 secrets*.json
 coverage/
+dist/reddit-doom-filter.comments-dev.user.js
