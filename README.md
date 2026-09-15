@@ -22,19 +22,22 @@ Hedef topluluklar:
 - r/ERPTurkiye
 - r/AppDevTR
 
-## Davranış
+## Nasıl çalışır?
 
-Filtre post başlığı ve gövdesini ayrı ayrı cümle/cümceciklere böler. “Yazılım bitti”, “CENG'in geleceği yok”, “tıp oku”, “AI işimizi elimizden aldı” gibi sinyalleri Türkçe çekim ve yazım varyasyonlarıyla puanlar. Karar ilgisiz cümlelerin toplamından değil en güçlü cümlecikten çıkar.
+- Başlık ve gövde ayrı ayrı incelenir. Türkçe çekim ve yazım farklılıkları tanınır; karar, tüm metnin toplamından değil en güçlü cümleden verilir.
+- Puanı eşik değerini aşan içerik silinmez, gizlenir. Gizleme nedeni ve **Göster** düğmesi görünür. Geçici olarak açılan içerik **Tekrar gizle** ile yeniden kapatılabilir.
+- Filtre hata verirse içerik görünür bırakılır.
 
-Eşiği geçen post DOM'dan silinmez. Gizlenir ve yerine neden ile birlikte bir **Göster** düğmesi bırakılır. Geçici olarak açılan post ve yorumlar **Tekrar gizle** ile aynı sayfada yeniden kapatılabilir; bu geçiş kişisel kural oluşturmaz. Motor hata verirse fail-open davranır; içerik görünür kalır.
+- Yorumlar bağımsız olarak filtrelenir. Gizlenen yorumun yalnızca kendi metni kapanır; alt yanıtları görünür kalır. Yorum filtresi menüden ayrı olarak açılıp kapatılabilir.
 
-Yorumlar aynı motorla ayrı ayrı değerlendirilir. Bir yorum gizlendiğinde yalnız o yorumun kendi metni ve işlem satırı kapanır; alt yanıtları görünür kalır. Yorum filtresi userscript menüsünden post filtresinden bağımsız kapatılabilir.
+- Betiği kullanan Reddit hesabının kendi post ve yorumları otomatik olarak filtrelenmez ve karar günlüğüne yazılmaz. Hesap adı modern ve old Reddit’ten algılanır; gerekirse menüden elle girilebilir. Elle girilen kullanıcı adı yalnız tarayıcıda saklanır.
 
-Oturumdaki Reddit hesabının kendi post ve yorumları puanlanmadan görünür bırakılır ve karar günlüğüne eklenmez. Hesap adı modern Reddit ve old Reddit başlığından otomatik algılanır. Reddit arayüzü bunu sağlamazsa kullanıcı adı userscript menüsünden bir kez girilebilir; bu yedek değer yalnız userscript deposunda tutulur.
+- Kişisel kurallar isteğe bağlıdır:
+  - **Daima göster** ve **Benzer yorumları daima göster**, seçilen içeriği tekrar gizlememek için yerel kural oluşturur.
+  - Kalibrasyon modunda **Daima gizle** seçenekleri kullanılabilir.
+  - Post ve yorum kuralları birbirinden bağımsızdır. Birden fazla kural eşleşirse en uzun ifade, eşitlikte en son eklenen kural kullanılır.
 
-Kişisel kurallar açıksa gizlenen posttaki **Daima göster** ve gizlenen yorumdaki **Benzer yorumları daima göster** düğmeleri düzenlenebilir bir ifade kaydeder. Kalibrasyon modundaki görünür içeriklerde karşılık gelen **Daima gizle** düğmeleri bulunur. Post kuralları yalnız postlara, yorum kuralları yalnız yorumlara uygulanır; birden fazla kural eşleşirse en uzun ifade, eşit uzunlukta ise en son tercih kazanır.
-
-Varsayılan eşik 4'tür. Soru başlıklarının özel koruması kapalıdır; “Yazılım bitti mi?” normal bir karamsar başlık gibi değerlendirilir. İsteğe bağlı soru koruması açılırsa yalnız başlık puanı yarıya iner, gövde puanı değişmez.
+- Varsayılan puan eşiği 4’tür. Soru başlıkları varsayılan olarak korunmaz; istenirse soru koruması açılabilir. Bu durumda yalnız başlık puanı yarıya indirilir, gövde puanı değişmez.
 
 ## Gizleme bildirimi ve geri alma seçenekleri
 
