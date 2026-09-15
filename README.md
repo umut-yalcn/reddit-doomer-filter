@@ -31,9 +31,29 @@ Eşiği geçen post DOM'dan silinmez. Gizlenir ve yerine neden ile birlikte bir 
 
 Yorumlar aynı motorla ayrı ayrı değerlendirilir. Bir yorum gizlendiğinde yalnız o yorumun kendi metni ve işlem satırı kapanır; alt yanıtları görünür kalır. Yorum filtresi userscript menüsünden post filtresinden bağımsız kapatılabilir.
 
+Oturumdaki Reddit hesabının kendi post ve yorumları puanlanmadan görünür bırakılır ve karar günlüğüne eklenmez. Hesap adı modern Reddit ve old Reddit başlığından otomatik algılanır. Reddit arayüzü bunu sağlamazsa kullanıcı adı userscript menüsünden bir kez girilebilir; bu yedek değer yalnız userscript deposunda tutulur.
+
 Kişisel kurallar açıksa gizlenen posttaki **Daima göster** ve gizlenen yorumdaki **Benzer yorumları daima göster** düğmeleri düzenlenebilir bir ifade kaydeder. Kalibrasyon modundaki görünür içeriklerde karşılık gelen **Daima gizle** düğmeleri bulunur. Post kuralları yalnız postlara, yorum kuralları yalnız yorumlara uygulanır; birden fazla kural eşleşirse en uzun ifade, eşit uzunlukta ise en son tercih kazanır.
 
 Varsayılan eşik 4'tür. Soru başlıklarının özel koruması kapalıdır; “Yazılım bitti mi?” normal bir karamsar başlık gibi değerlendirilir. İsteğe bağlı soru koruması açılırsa yalnız başlık puanı yarıya iner, gövde puanı değişmez.
+
+## Gizleme bildirimi ve geri alma seçenekleri
+
+Filtrelenen postlarda gizleme nedeni ve üç seçenek gösterilir:
+
+- **Göster:** İçeriği yalnızca o an için açar.
+- **Daima göster:** Benzer içeriği tekrar gizlememek üzere yerel bir kişisel kural oluşturur.
+- **Yanlış gizlendi:** Kararı yanlış pozitif olarak işaretler ve içeriği geri getirir.
+
+Postlar; örneğin “mesleki pişmanlık/tükenmişlik” veya “iş bulamama/iş yokluğu” gibi gerekçelerle gizlenebilir.
+
+![Post gizleme bildirimi - mesleki pişmanlık](docs/screenshots/hidden-post-career.png)
+
+![Post gizleme bildirimi - iş bulamama](docs/screenshots/hidden-post-job-search.png)
+
+Yorumlarda benzer bir arayüz bulunur. **Benzer yorumları daima göster** seçeneği, aynı türdeki yorumlar için yerel bir kişisel gösterme kuralı oluşturur.
+
+![Yorum gizleme bildirimi - piyasa daralması](docs/screenshots/hidden-comment-market.png)
 
 ## Kurulum
 
@@ -72,6 +92,7 @@ Userscript menüsünden:
 - Debug gerekçelerini açabilirsiniz.
 - Kalibrasyon düğmelerini açabilirsiniz.
 - Yorum filtresini bağımsız açıp kapatabilirsiniz.
+- Otomatik hesap algılanamazsa kendi Reddit kullanıcı adınızı yerel olarak ayarlayabilirsiniz.
 - Kişisel kuralları açıp kapatabilir, silebilir, indirebilir, içe aktarabilir veya sıfırlayabilirsiniz.
 - Yerel karar günlüğünü JSON olarak indirebilir veya tamamen sıfırlayabilirsiniz.
 - On iki subreddit filtresini ayrı ayrı açıp kapatabilirsiniz.
@@ -132,6 +153,7 @@ sağlar.
 - Userscript yöneticisi yalnız kararlı sürüm güncellemesini denetlemek için GitHub'daki `stable` dağıtım dosyasına erişebilir; çalışma zamanı Reddit içeriğini GitHub'a göndermez.
 - Betik açık `DOM` sandbox'ında çalışır ve sayfaya global debug nesnesi bırakmaz.
 - Post/yorum metni, tarama geçmişi veya kullanıcı bilgisi dışarı gönderilmez.
+- İsteğe bağlı elle girilen Reddit kullanıcı adı yalnız kendi içeriklerini muaf tutmak için userscript deposunda saklanır.
 - Kalibrasyon günlüğü yalnız yerel userscript deposunda tutulur ve 500 kayıtla sınırlıdır.
 - Kişisel kurallar yalnız yerel userscript deposunda tutulur ve 100 kayıtla sınırlıdır.
 - Userscript depolama API'si kullanılamazsa Reddit origin depolamasına geçilmez; veriler yalnız o çalıştırma için bellekte tutulur.
