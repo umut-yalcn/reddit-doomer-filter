@@ -1,9 +1,9 @@
-# Reddit Karamsarlık Filtresi
+# Reddit Doomer Filtresi
 
 [![CI](https://github.com/umut-yalcn/reddit-new-filter/actions/workflows/ci.yml/badge.svg)](https://github.com/umut-yalcn/reddit-new-filter/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-Seçili Türkçe teknoloji/mühendislik subredditlerindeki karamsar kariyer postlarını ve yorumlarını tarayıcıda yerel olarak gizleyen userscript.
+Türkçe mühendislik subredditlerindeki doomer postlarını ve yorumlarını tarayıcıda gizleyen userscript.
 
 Bu bağımsız topluluk projesi Reddit tarafından geliştirilmemiş, onaylanmamış veya desteklenmemiştir. Reddit ve subreddit adları ilgili sahiplerine aittir.
 
